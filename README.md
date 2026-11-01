@@ -1,11 +1,11 @@
+NOT FOR PRODUCTION USE, WIP
+
 ```
-go get github.com/ProtonMail/go-crypto
+go get github.com/thelemail/go-crypto
 ```
 
-This module is backwards compatible with x/crypto/openpgp,
-so you can simply replace all imports of `golang.org/x/crypto/openpgp` with
-`github.com/ProtonMail/go-crypto/openpgp`.
+An OpenPGP library for Go that aims to use only the Go standard library for cryptography, including post-quantum keys (RFC 9580, RFC 9980). Forked from ProtonMail/go-crypto v1.5.2.
 
-A partial list of changes is here: https://github.com/ProtonMail/go-crypto/issues/21#issuecomment-492792917.
+This module aims to stay backwards compatible with x/crypto/openpgp and API-compatible with ProtonMail/go-crypto.
 
-For the more extended API for reading and writing OpenPGP messages use `github.com/ProtonMail/go-crypto/openpgp/v2`, but it is not fully backwards compatible with `golang.org/x/crypto/openpgp`. 
+BSD-3-Clause, same as upstream. See LICENSE.
