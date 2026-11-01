@@ -24,7 +24,6 @@ import (
 	"github.com/thelemail/go-crypto/openpgp/mldsa_eddsa"
 	"github.com/thelemail/go-crypto/openpgp/mlkem_ecdh"
 	"github.com/thelemail/go-crypto/openpgp/packet"
-	"github.com/thelemail/go-crypto/openpgp/slhdsa"
 	"github.com/thelemail/go-crypto/openpgp/x25519"
 	"github.com/thelemail/go-crypto/openpgp/x448"
 )
@@ -337,17 +336,6 @@ func newSigner(config *packet.Config) (signer interface{}, err error) {
 		}
 
 		return mldsa_eddsa.GenerateKey(config.Random(), uint8(config.PublicKeyAlgorithm()), c, d)
-	case packet.PubKeyAlgoSlhdsaShake128s, packet.PubKeyAlgoSlhdsaShake128f, packet.PubKeyAlgoSlhdsaShake256s:
-		if !config.V6() {
-			return nil, goerrors.New("openpgp: cannot create a non-v6 SLH-DSH key")
-		}
-
-		scheme, err := packet.GetSlhdsaSchemeFromAlgID(config.PublicKeyAlgorithm())
-		if err != nil {
-			return nil, err
-		}
-
-		return slhdsa.GenerateKey(config.Random(), uint8(config.PublicKeyAlgorithm()), scheme)
 	default:
 		return nil, errors.InvalidArgumentError("unsupported public key algorithm")
 	}
@@ -391,8 +379,7 @@ func newDecrypter(config *packet.Config) (decrypter interface{}, err error) {
 		return x25519.GenerateKey(config.Random())
 	case packet.PubKeyAlgoEd448, packet.PubKeyAlgoX448: // When passing Ed448, we generate an x448 subkey
 		return x448.GenerateKey(config.Random())
-	case packet.PubKeyAlgoMldsa65Ed25519, packet.PubKeyAlgoMldsa87Ed448,
-		packet.PubKeyAlgoSlhdsaShake128s, packet.PubKeyAlgoSlhdsaShake128f, packet.PubKeyAlgoSlhdsaShake256s:
+	case packet.PubKeyAlgoMldsa65Ed25519, packet.PubKeyAlgoMldsa87Ed448:
 		if pubKeyAlgo, err = packet.GetMatchingMlkem(config.PublicKeyAlgorithm()); err != nil {
 			return nil, err
 		}

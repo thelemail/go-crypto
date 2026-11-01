@@ -501,21 +501,6 @@ var testEncryptionTests = map[string]struct {
 		true,
 		true,
 	},
-	"v6_SLH-DSA-128s_ML-KEM-768+X25519_signed": {
-		v6Slhdsa128sMlkem768X25519PrivateHex,
-		true,
-		true,
-	},
-	"v6_SLH-DSA-128f_ML-KEM-768+X25519_signed": {
-		v6Slhdsa128fMlkem768X25519PrivateHex,
-		true,
-		true,
-	},
-	"v6_SLH-DSA-256s_ML-KEM-1024+X448_signed": {
-		v6Slhdsa256sMlkem1024X448PrivateHex,
-		true,
-		true,
-	},
 }
 
 func TestEncryption(t *testing.T) {

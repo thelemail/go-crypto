@@ -523,8 +523,10 @@ const (
 	PubKeyAlgoRSASignOnly    PublicKeyAlgorithm = 3
 
 	// PQC DSA algorithms
-	PubKeyAlgoMldsa65Ed25519  = 30
-	PubKeyAlgoMldsa87Ed448    = 31
+	PubKeyAlgoMldsa65Ed25519 = 30
+	PubKeyAlgoMldsa87Ed448   = 31
+
+	// Recognized but unsupported UnsupportedError
 	PubKeyAlgoSlhdsaShake128s = 32
 	PubKeyAlgoSlhdsaShake128f = 33
 	PubKeyAlgoSlhdsaShake256s = 34
@@ -551,8 +553,7 @@ func (pka PublicKeyAlgorithm) CanSign() bool {
 	switch pka {
 	case PubKeyAlgoRSA, PubKeyAlgoRSASignOnly, PubKeyAlgoDSA, PubKeyAlgoECDSA, PubKeyAlgoEdDSA,
 		PubKeyAlgoEd25519, PubKeyAlgoEd448,
-		PubKeyAlgoMldsa65Ed25519, PubKeyAlgoMldsa87Ed448,
-		PubKeyAlgoSlhdsaShake128s, PubKeyAlgoSlhdsaShake128f, PubKeyAlgoSlhdsaShake256s:
+		PubKeyAlgoMldsa65Ed25519, PubKeyAlgoMldsa87Ed448:
 		return true
 	}
 	return false
