@@ -95,7 +95,7 @@ func ReadMessage(r io.Reader, keyring KeyRing, prompt PromptFunction, config *pa
 
 	var symKeys []*packet.SymmetricKeyEncrypted
 	var pubKeys []keyEnvelopePair
-	// Integrity protected encrypted packet: SymmetricallyEncrypted or AEADEncrypted
+	// Integrity protected encrypted packet: SymmetricallyEncrypted
 	var edp packet.EncryptedDataPacket
 
 	packets := packet.NewReader(r)
@@ -142,9 +142,6 @@ ParsePackets:
 			if !p.IntegrityProtected && !config.AllowUnauthenticatedMessages() {
 				return nil, errors.UnsupportedError("message is not integrity protected")
 			}
-			edp = p
-			break ParsePackets
-		case *packet.AEADEncrypted:
 			edp = p
 			break ParsePackets
 		case *packet.Compressed, *packet.LiteralData, *packet.OnePassSignature:

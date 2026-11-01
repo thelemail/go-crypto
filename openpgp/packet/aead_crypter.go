@@ -15,10 +15,10 @@ type aeadCrypter struct {
 	aead           cipher.AEAD
 	chunkSize      int
 	nonce          []byte
-	associatedData []byte       // Chunk-independent associated data
-	chunkIndex     []byte       // Chunk counter
-	packetTag      packetType   // SEIP packet (v2) or AEAD Encrypted Data packet
-	bytesProcessed int          // Amount of plaintext bytes encrypted/decrypted
+	associatedData []byte     // Chunk-independent associated data
+	chunkIndex     []byte     // Chunk counter
+	packetTag      packetType // SEIP packet (v2)
+	bytesProcessed int        // Amount of plaintext bytes encrypted/decrypted
 }
 
 // computeNonce takes the incremental index and computes an eXclusive OR with
@@ -61,8 +61,8 @@ type aeadDecrypter struct {
 	aeadCrypter           // Embedded ciphertext opener
 	reader      io.Reader // 'reader' is a partialLengthReader
 	chunkBytes  []byte
-	peekedBytes []byte    // Used to detect last chunk
-	buffer      []byte    // Buffered decrypted bytes
+	peekedBytes []byte // Used to detect last chunk
+	buffer      []byte // Buffered decrypted bytes
 }
 
 // Read decrypts bytes and reads them into dst. It decrypts when necessary and
@@ -85,7 +85,7 @@ func (ar *aeadDecrypter) Read(dst []byte) (n int, err error) {
 	}
 
 	if bytesRead > 0 {
-		ar.peekedBytes = ar.chunkBytes[bytesRead:bytesRead+tagLen]
+		ar.peekedBytes = ar.chunkBytes[bytesRead : bytesRead+tagLen]
 
 		decrypted, errChunk := ar.openChunk(ar.chunkBytes[:bytesRead])
 		if errChunk != nil {
@@ -117,9 +117,6 @@ func (ar *aeadDecrypter) Close() (err error) {
 // chunk, to identify the last chunk and decrypt/validate accordingly.
 func (ar *aeadDecrypter) openChunk(data []byte) ([]byte, error) {
 	adata := ar.associatedData
-	if ar.aeadCrypter.packetTag == packetTypeAEADEncrypted {
-		adata = append(ar.associatedData, ar.chunkIndex...)
-	}
 
 	nonce := ar.computeNextNonce()
 	plainChunk, err := ar.aead.Open(data[:0:len(data)], nonce, data, adata)
@@ -141,10 +138,6 @@ func (ar *aeadDecrypter) validateFinalTag(tag []byte) error {
 	binary.BigEndian.PutUint64(amountBytes, uint64(ar.bytesProcessed))
 
 	adata := ar.associatedData
-	if ar.aeadCrypter.packetTag == packetTypeAEADEncrypted {
-		// ... index ...
-		adata = append(ar.associatedData, ar.chunkIndex...)
-	}
 
 	// ... and total number of encrypted octets
 	adata = append(adata, amountBytes...)
@@ -208,11 +201,6 @@ func (aw *aeadEncrypter) Close() (err error) {
 	// chunk size...
 	adata := aw.associatedData
 
-	if aw.aeadCrypter.packetTag == packetTypeAEADEncrypted {
-		// ... index ...
-		adata = append(aw.associatedData, aw.chunkIndex...)
-	}
-
 	// ... and total number of encrypted octets
 	amountBytes := make([]byte, 8)
 	binary.BigEndian.PutUint64(amountBytes, uint64(aw.bytesProcessed))
@@ -236,9 +224,6 @@ func (aw *aeadEncrypter) sealChunk(data []byte) ([]byte, error) {
 		return nil, errors.AEADError("can't seal without headers")
 	}
 	adata := aw.associatedData
-	if aw.aeadCrypter.packetTag == packetTypeAEADEncrypted {
-		adata = append(aw.associatedData, aw.chunkIndex...)
-	}
 
 	nonce := aw.computeNextNonce()
 	encrypted := aw.aead.Seal(data[:0], nonce, data, adata)

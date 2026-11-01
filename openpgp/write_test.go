@@ -389,7 +389,7 @@ func TestSymmetricEncryptionSEIPDv2RandomizeSlow(t *testing.T) {
 		t.Errorf("error closing plaintext writer: %s", err)
 	}
 
-	// Check if the packet is AEADEncrypted
+	// Check if the packet is SEIPD
 	copiedCiph := make([]byte, len(buf.Bytes()))
 	copy(copiedCiph, buf.Bytes())
 	copiedBuf := bytes.NewBuffer(copiedCiph)
@@ -707,7 +707,7 @@ func checkCompression(r io.Reader, keyring KeyRing) (err error) {
 
 	var symKeys []*packet.SymmetricKeyEncrypted
 	var pubKeys []keyEnvelopePair
-	// Integrity protected encrypted packet: SymmetricallyEncrypted or AEADEncrypted
+	// Integrity protected encrypted packet: SymmetricallyEncrypted
 	var edp packet.EncryptedDataPacket
 
 	packets := packet.NewReader(r)
@@ -742,8 +742,8 @@ ParsePackets:
 			for _, k := range keys {
 				pubKeys = append(pubKeys, keyEnvelopePair{k, p})
 			}
-		case *packet.SymmetricallyEncrypted, *packet.AEADEncrypted:
-			edp = p.(packet.EncryptedDataPacket)
+		case *packet.SymmetricallyEncrypted:
+			edp = p
 			break ParsePackets
 		case *packet.Compressed, *packet.LiteralData, *packet.OnePassSignature:
 			// This message isn't encrypted.

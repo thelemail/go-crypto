@@ -32,8 +32,6 @@ func TestDecryptSymmetricKeyAndEncryptedDataPacket(t *testing.T) {
 		switch p := packet.(type) {
 		case *SymmetricallyEncrypted:
 			edp = p
-		case *AEADEncrypted:
-			edp = p
 		default:
 			t.Fatal("no integrity protected packet")
 		}
@@ -152,8 +150,6 @@ func checkIntegrityError(t *testing.T, packet Packet, cipherFunc CipherFunction,
 		} else {
 			t.Fatalf("no error (expected integrity check failure)")
 		}
-	case *AEADEncrypted:
-		return
 	default:
 		t.Fatal("no integrity protected packet found")
 	}
@@ -328,4 +324,17 @@ func TestSerializeSymmetricKeyEncryptedCiphersV4(t *testing.T) {
 			}
 		})
 	}
+}
+
+// ----------------------------------- //
+// -------       UTILS       --------- //
+// ----------------------------------- //
+
+func randomKey(length int) []byte {
+	key := make([]byte, length)
+	_, err := rand.Read(key)
+	if err != nil {
+		panic("can't read from rand")
+	}
+	return key
 }

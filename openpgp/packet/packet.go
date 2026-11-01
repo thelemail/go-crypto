@@ -330,12 +330,12 @@ const (
 	packetTypePublicSubkey                             packetType = 14
 	packetTypeUserAttribute                            packetType = 17
 	packetTypeSymmetricallyEncryptedIntegrityProtected packetType = 18
-	packetTypeAEADEncrypted                            packetType = 20
+	packetTypeAEADEncrypted                            packetType = 20 // Recognized but unsupported
 	packetTypePadding                                  packetType = 21
 )
 
 // EncryptedDataPacket holds encrypted data. It is currently implemented by
-// SymmetricallyEncrypted and AEADEncrypted.
+// SymmetricallyEncrypted.
 type EncryptedDataPacket interface {
 	Decrypt(CipherFunction, []byte) (io.ReadCloser, error)
 }
@@ -380,8 +380,6 @@ func Read(r io.Reader) (p Packet, err error) {
 		se := new(SymmetricallyEncrypted)
 		se.IntegrityProtected = true
 		p = se
-	case packetTypeAEADEncrypted:
-		p = new(AEADEncrypted)
 	case packetTypePadding:
 		p = Padding(len)
 	case packetTypeMarker:
@@ -443,9 +441,6 @@ func ReadWithCheck(r io.Reader, sequence *SequenceVerifier) (p Packet, msgErr er
 		se := new(SymmetricallyEncrypted)
 		se.IntegrityProtected = true
 		p = se
-	case packetTypeAEADEncrypted:
-		msgErr = sequence.Next(EncSymbol)
-		p = new(AEADEncrypted)
 	case packetTypePadding:
 		p = Padding(len)
 	case packetTypeMarker:

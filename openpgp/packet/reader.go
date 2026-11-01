@@ -44,7 +44,7 @@ func (r *Reader) Next() (p Packet, err error) {
 			}
 			if _, ok := err.(errors.UnsupportedError); ok {
 				switch p.(type) {
-				case *SymmetricallyEncrypted, *AEADEncrypted, *Compressed, *LiteralData:
+				case *SymmetricallyEncrypted, *Compressed, *LiteralData:
 					return nil, err
 				}
 				continue
@@ -180,7 +180,7 @@ func (r *CheckReader) Next() (p Packet, err error) {
 		}
 		if _, ok := err.(errors.UnsupportedError); ok {
 			switch p.(type) {
-			case *SymmetricallyEncrypted, *AEADEncrypted, *Compressed, *LiteralData:
+			case *SymmetricallyEncrypted, *Compressed, *LiteralData:
 				return nil, err
 			}
 			continue
