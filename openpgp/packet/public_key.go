@@ -19,6 +19,10 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/cloudflare/circl/kem"
+	"github.com/cloudflare/circl/kem/mlkem/mlkem768"
+	"github.com/cloudflare/circl/sign"
+	"github.com/cloudflare/circl/sign/mldsa/mldsa65"
 	"github.com/thelemail/go-crypto/openpgp/ecdh"
 	"github.com/thelemail/go-crypto/openpgp/ecdsa"
 	"github.com/thelemail/go-crypto/openpgp/ed25519"
@@ -31,10 +35,6 @@ import (
 	"github.com/thelemail/go-crypto/openpgp/mldsa_eddsa"
 	"github.com/thelemail/go-crypto/openpgp/mlkem_ecdh"
 	"github.com/thelemail/go-crypto/openpgp/x25519"
-	"github.com/cloudflare/circl/kem"
-	"github.com/cloudflare/circl/kem/mlkem/mlkem768"
-	"github.com/cloudflare/circl/sign"
-	"github.com/cloudflare/circl/sign/mldsa/mldsa65"
 )
 
 // PublicKey represents an OpenPGP public key. See RFC 4880, section 5.5.2.
@@ -57,13 +57,6 @@ type PublicKey struct {
 	// kdf stores key derivation function parameters
 	// used for ECDH encryption. See RFC 6637, Section 9.
 	kdf encoding.Field
-}
-
-// UpgradeToV5 updates the version of the key to v5, and updates all necessary
-// fields.
-func (pk *PublicKey) UpgradeToV5() {
-	pk.Version = 5
-	pk.setFingerprintAndKeyId()
 }
 
 // UpgradeToV6 updates the version of the key to v6, and updates all necessary
@@ -244,15 +237,11 @@ func (pk *PublicKey) parse(r io.Reader) (err error) {
 	}
 
 	pk.Version = int(buf[0])
-	if pk.Version != 4 && pk.Version != 5 && pk.Version != 6 {
+	if pk.Version != 4 && pk.Version != 6 {
 		return errors.UnsupportedError("public key version " + strconv.Itoa(int(buf[0])))
 	}
 
-	if V5Disabled && pk.Version == 5 {
-		return errors.UnsupportedError("support for parsing v5 entities is disabled; build with `-tags v5` if needed")
-	}
-
-	if pk.Version >= 5 {
+	if pk.Version == 6 {
 		// Read the four-octet scalar octet count
 		// The count is not used in this implementation
 		var n [4]byte
@@ -261,6 +250,7 @@ func (pk *PublicKey) parse(r io.Reader) (err error) {
 			return
 		}
 	}
+
 	pk.CreationTime = time.Unix(int64(uint32(buf[1])<<24|uint32(buf[2])<<16|uint32(buf[3])<<8|uint32(buf[4])), 0)
 	pk.PubKeyAlgo = PublicKeyAlgorithm(buf[5])
 	// Ignore four-octet length
@@ -304,7 +294,7 @@ func (pk *PublicKey) parse(r io.Reader) (err error) {
 
 func (pk *PublicKey) setFingerprintAndKeyId() {
 	// RFC 4880, section 12.2
-	if pk.Version >= 5 {
+	if pk.Version == 6 {
 		fingerprint := sha256.New()
 		if err := pk.SerializeForHash(fingerprint); err != nil {
 			// Should not happen for a hash.
@@ -668,7 +658,7 @@ func (pk *PublicKey) SerializeSignaturePrefix(w io.Writer) error {
 	var pLength = pk.algorithmSpecificByteCount()
 	// version, timestamp, algorithm
 	pLength += versionSize + timestampSize + algorithmSize
-	if pk.Version >= 5 {
+	if pk.Version == 6 {
 		// key octet count (4).
 		pLength += 4
 		_, err := w.Write([]byte{
@@ -692,7 +682,7 @@ func (pk *PublicKey) SerializeSignaturePrefix(w io.Writer) error {
 func (pk *PublicKey) Serialize(w io.Writer) (err error) {
 	length := uint32(versionSize + timestampSize + algorithmSize) // 6 byte header
 	length += pk.algorithmSpecificByteCount()
-	if pk.Version >= 5 {
+	if pk.Version == 6 {
 		length += 4 // octet key count
 	}
 	packetType := packetTypePublicKey
@@ -759,7 +749,7 @@ func (pk *PublicKey) serializeWithoutHeaders(w io.Writer) (err error) {
 		return
 	}
 
-	if pk.Version >= 5 {
+	if pk.Version == 6 {
 		n := pk.algorithmSpecificByteCount()
 		if _, err = w.Write([]byte{
 			byte(n >> 24), byte(n >> 16), byte(n >> 8), byte(n),
@@ -831,10 +821,10 @@ func (pk *PublicKey) serializeWithoutHeaders(w io.Writer) (err error) {
 			return
 		}
 		var mlkemBin []byte
-        mlkemBin, err = publicKey.PublicMlkem.MarshalBinary()
-        if err != nil {
+		mlkemBin, err = publicKey.PublicMlkem.MarshalBinary()
+		if err != nil {
 			return
-        }
+		}
 		_, err = w.Write(mlkemBin)
 		return
 	case PubKeyAlgoMldsa65Ed25519:
@@ -843,10 +833,10 @@ func (pk *PublicKey) serializeWithoutHeaders(w io.Writer) (err error) {
 			return
 		}
 		var mldsaBin []byte
-        mldsaBin, err = publicKey.PublicMldsa.MarshalBinary()
-        if err != nil {
+		mldsaBin, err = publicKey.PublicMldsa.MarshalBinary()
+		if err != nil {
 			return
-        }
+		}
 		_, err = w.Write(mldsaBin)
 		return
 	}
@@ -861,14 +851,12 @@ func (pk *PublicKey) CanSign() bool {
 // VerifyHashTag returns nil iff sig appears to be a plausible signature of the data
 // hashed into signed, based solely on its HashTag. signed is mutated by this call.
 func VerifyHashTag(signed hash.Hash, sig *Signature) (err error) {
-	if sig.Version == 5 && (sig.SigType == 0x00 || sig.SigType == 0x01) {
-		sig.AddMetadataToHashSuffix()
-	}
 	signed.Write(sig.HashSuffix)
 	hashBytes := signed.Sum(nil)
 	if hashBytes[0] != sig.HashTag[0] || hashBytes[1] != sig.HashTag[1] {
 		return errors.SignatureError("hash tag doesn't match")
 	}
+
 	return nil
 }
 
@@ -878,13 +866,11 @@ func (pk *PublicKey) VerifySignature(signed hash.Hash, sig *Signature) (err erro
 	if !pk.CanSign() {
 		return errors.InvalidArgumentError("public key cannot generate signatures")
 	}
-	if sig.Version == 5 && (sig.SigType == 0x00 || sig.SigType == 0x01) {
-		sig.AddMetadataToHashSuffix()
-	}
+
 	signed.Write(sig.HashSuffix)
 	hashBytes := signed.Sum(nil)
-	// see discussion https://github.com/thelemail/go-crypto/issues/107
-	if sig.Version >= 5 && (hashBytes[0] != sig.HashTag[0] || hashBytes[1] != sig.HashTag[1]) {
+	// see discussion https://github.com/protonmail/go-crypto/issues/107
+	if sig.Version == 6 && (hashBytes[0] != sig.HashTag[0] || hashBytes[1] != sig.HashTag[1]) {
 		return errors.SignatureError("hash tag doesn't match")
 	}
 
@@ -1129,10 +1115,10 @@ func (pk *PublicKey) KeyIdString() string {
 
 // KeyIdShortString returns the short form of public key's fingerprint
 // in capital hex, as shown by gpg --list-keys (e.g. "621CC013").
-// This function will return the full key id for v5 and v6 keys
+// This function will return the full key id for v6 keys
 // since the short key id is undefined for them.
 func (pk *PublicKey) KeyIdShortString() string {
-	if pk.Version >= 5 {
+	if pk.Version == 6 {
 		return pk.KeyIdString()
 	}
 	return fmt.Sprintf("%X", pk.Fingerprint[16:20])

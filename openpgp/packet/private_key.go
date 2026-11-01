@@ -184,12 +184,8 @@ func (pk *PrivateKey) parse(r io.Reader) (err error) {
 	if err != nil {
 		return
 	}
-	v5 := pk.PublicKey.Version == 5
-	v6 := pk.PublicKey.Version == 6
 
-	if V5Disabled && v5 {
-		return errors.UnsupportedError("support for parsing v5 entities is disabled; build with `-tags v5` if needed")
-	}
+	v6 := pk.PublicKey.Version == 6
 
 	var buf [1]byte
 	_, err = readFull(r, buf[:])
@@ -198,7 +194,7 @@ func (pk *PrivateKey) parse(r io.Reader) (err error) {
 	}
 	pk.s2kType = S2KType(buf[0])
 	var optCount [1]byte
-	if v5 || (v6 && pk.s2kType != S2KNON) {
+	if v6 && pk.s2kType != S2KNON {
 		if _, err = readFull(r, optCount[:]); err != nil {
 			return
 		}
@@ -209,7 +205,7 @@ func (pk *PrivateKey) parse(r io.Reader) (err error) {
 		pk.s2k = nil
 		pk.Encrypted = false
 	case S2KSHA1, S2KCHECKSUM, S2KAEAD:
-		if (v5 || v6) && pk.s2kType == S2KCHECKSUM {
+		if v6 && pk.s2kType == S2KCHECKSUM {
 			return errors.StructuralError(fmt.Sprintf("wrong s2k identifier for version %d", pk.Version))
 		}
 		_, err = readFull(r, buf[:])
@@ -271,9 +267,8 @@ func (pk *PrivateKey) parse(r io.Reader) (err error) {
 	if pk.Encrypted {
 		var ivSize int
 		// If the S2K usage octet was 253, the IV is of the size expected by the AEAD mode,
-		// unless it's a version 5 key, in which case it's the size of the symmetric cipher's block size.
 		// For all other S2K modes, it's always the block size.
-		if !v5 && pk.s2kType == S2KAEAD {
+		if pk.s2kType == S2KAEAD {
 			ivSize = pk.aead.IvLength()
 		} else {
 			ivSize = pk.cipher.blockSize()
@@ -287,36 +282,15 @@ func (pk *PrivateKey) parse(r io.Reader) (err error) {
 		if err != nil {
 			return
 		}
-		if v5 && pk.s2kType == S2KAEAD {
-			if pk.aead.IvLength() > len(pk.iv) {
-				return errors.StructuralError("invalid aead IV length for v5 private key")
-			}
-			pk.iv = pk.iv[:pk.aead.IvLength()]
-		}
 	}
 
 	var privateKeyData []byte
-	if v5 {
-		var n [4]byte /* secret material four octet count */
-		_, err = readFull(r, n[:])
-		if err != nil {
-			return
-		}
-		count := uint32(uint32(n[0])<<24 | uint32(n[1])<<16 | uint32(n[2])<<8 | uint32(n[3]))
-		if !pk.Encrypted {
-			count = count + 2 /* two octet checksum */
-		}
-		privateKeyData = make([]byte, count)
-		_, err = readFull(r, privateKeyData)
-		if err != nil {
-			return
-		}
-	} else {
-		privateKeyData, err = io.ReadAll(r)
-		if err != nil {
-			return
-		}
+
+	privateKeyData, err = io.ReadAll(r)
+	if err != nil {
+		return
 	}
+
 	if !pk.Encrypted {
 		if len(privateKeyData) < 2 {
 			return errors.StructuralError("truncated private key data")
@@ -405,16 +379,9 @@ func (pk *PrivateKey) Serialize(w io.Writer) (err error) {
 			if _, err = optional.Write(pk.iv); err != nil {
 				return
 			}
-			if pk.Version == 5 && pk.s2kType == S2KAEAD {
-				// Add padding for version 5
-				padding := make([]byte, pk.cipher.blockSize()-len(pk.iv))
-				if _, err = optional.Write(padding); err != nil {
-					return
-				}
-			}
 		}
 	}
-	if pk.Version == 5 || (pk.Version == 6 && pk.s2kType != S2KNON) {
+	if pk.Version == 6 && pk.s2kType != S2KNON {
 		contents.Write([]byte{uint8(optional.Len())})
 	}
 
@@ -423,7 +390,6 @@ func (pk *PrivateKey) Serialize(w io.Writer) (err error) {
 	}
 
 	if !pk.Dummy() {
-		l := 0
 		var priv []byte
 		if !pk.Encrypted {
 			buf := bytes.NewBuffer(nil)
@@ -431,19 +397,17 @@ func (pk *PrivateKey) Serialize(w io.Writer) (err error) {
 			if err != nil {
 				return err
 			}
-			l = buf.Len()
+
 			if pk.Version != 6 {
 				checksum := mod64kHash(buf.Bytes())
 				buf.Write([]byte{byte(checksum >> 8), byte(checksum)})
 			}
+
 			priv = buf.Bytes()
 		} else {
-			priv, l = pk.encryptedData, len(pk.encryptedData)
+			priv = pk.encryptedData
 		}
 
-		if pk.Version == 5 {
-			contents.Write([]byte{byte(l >> 24), byte(l >> 16), byte(l >> 8), byte(l)})
-		}
 		contents.Write(priv)
 	}
 

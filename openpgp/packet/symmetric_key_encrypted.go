@@ -41,15 +41,11 @@ func (ske *SymmetricKeyEncrypted) parse(r io.Reader) error {
 		return err
 	}
 	ske.Version = int(buf[0])
-	if ske.Version != 4 && ske.Version != 5 && ske.Version != 6 {
+	if ske.Version != 4 && ske.Version != 6 {
 		return errors.UnsupportedError("unknown SymmetricKeyEncrypted version")
 	}
 
-	if V5Disabled && ske.Version == 5 {
-		return errors.UnsupportedError("support for parsing v5 entities is disabled; build with `-tags v5` if needed")
-	}
-
-	if ske.Version > 5 {
+	if ske.Version == 6 {
 		// Scalar octet count
 		if _, err := readFull(r, buf[:]); err != nil {
 			return err
@@ -65,15 +61,13 @@ func (ske *SymmetricKeyEncrypted) parse(r io.Reader) error {
 		return errors.UnsupportedError("unknown cipher: " + strconv.Itoa(int(buf[0])))
 	}
 
-	if ske.Version >= 5 {
+	if ske.Version == 6 {
 		// AEAD mode
 		if _, err := readFull(r, buf[:]); err != nil {
 			return errors.StructuralError("cannot read AEAD octet from packet")
 		}
 		ske.Mode = AEADMode(buf[0])
-	}
 
-	if ske.Version > 5 {
 		// Scalar octet count
 		if _, err := readFull(r, buf[:]); err != nil {
 			return err
@@ -88,7 +82,7 @@ func (ske *SymmetricKeyEncrypted) parse(r io.Reader) error {
 		return err
 	}
 
-	if ske.Version >= 5 {
+	if ske.Version == 6 {
 		// AEAD IV
 		iv := make([]byte, ske.Mode.IvLength())
 		_, err := readFull(r, iv)
@@ -129,7 +123,7 @@ func (ske *SymmetricKeyEncrypted) Decrypt(passphrase []byte) ([]byte, CipherFunc
 	case 4:
 		plaintextKey, cipherFunc, err := ske.decryptV4(key)
 		return plaintextKey, cipherFunc, err
-	case 5, 6:
+	case 6:
 		plaintextKey, err := ske.aeadDecrypt(ske.Version, key)
 		return plaintextKey, CipherFunction(0), err
 	}
@@ -238,13 +232,10 @@ func SerializeSymmetricKeyEncryptedAEADReuseKey(w io.Writer, sessionKey []byte, 
 	switch version {
 	case 4:
 		packetLength = 2 /* header */ + len(s2kBytes) + 1 /* cipher type */ + keySize
-	case 5, 6:
+	case 6:
 		ivLen := config.AEAD().Mode().IvLength()
 		tagLen := config.AEAD().Mode().TagLength()
-		packetLength = 3 + len(s2kBytes) + ivLen + keySize + tagLen
-	}
-	if version > 5 {
-		packetLength += 2 // additional octet count fields
+		packetLength = 5 + len(s2kBytes) + ivLen + keySize + tagLen
 	}
 
 	err = serializeHeader(w, packetTypeSymmetricKeyEncrypted, packetLength)
@@ -255,7 +246,7 @@ func SerializeSymmetricKeyEncryptedAEADReuseKey(w io.Writer, sessionKey []byte, 
 	// Symmetric Key Encrypted Version
 	buf := []byte{byte(version)}
 
-	if version > 5 {
+	if version == 6 {
 		// Scalar octet count
 		buf = append(buf, byte(3+len(s2kBytes)+config.AEAD().Mode().IvLength()))
 	}
@@ -263,14 +254,11 @@ func SerializeSymmetricKeyEncryptedAEADReuseKey(w io.Writer, sessionKey []byte, 
 	// Cipher function
 	buf = append(buf, byte(cipherFunc))
 
-	if version >= 5 {
+	if version == 6 {
 		// AEAD mode
-		buf = append(buf, byte(config.AEAD().Mode()))
+		buf = append(buf, byte(config.AEAD().Mode()), byte(len(s2kBytes)))
 	}
-	if version > 5 {
-		// Scalar octet count
-		buf = append(buf, byte(len(s2kBytes)))
-	}
+
 	_, err = w.Write(buf)
 	if err != nil {
 		return
@@ -291,7 +279,7 @@ func SerializeSymmetricKeyEncryptedAEADReuseKey(w io.Writer, sessionKey []byte, 
 		if err != nil {
 			return
 		}
-	case 5, 6:
+	case 6:
 		mode := config.AEAD().Mode()
 		adata := []byte{0xc3, byte(version), byte(cipherFunc), byte(mode)}
 		var aead cipher.AEAD
@@ -323,16 +311,12 @@ func SerializeSymmetricKeyEncryptedAEADReuseKey(w io.Writer, sessionKey []byte, 
 }
 
 func getEncryptedKeyAeadInstance(c CipherFunction, mode AEADMode, inputKey, associatedData []byte, version int) (aead cipher.AEAD, err error) {
-	var blockCipher cipher.Block
-	if version > 5 {
-		hkdfReader := hkdf.New(sha256.New, inputKey, []byte{}, associatedData)
+	hkdfReader := hkdf.New(sha256.New, inputKey, []byte{}, associatedData)
 
-		encryptionKey := make([]byte, c.KeySize())
-		_, _ = readFull(hkdfReader, encryptionKey)
+	encryptionKey := make([]byte, c.KeySize())
+	_, _ = readFull(hkdfReader, encryptionKey)
 
-		blockCipher = c.new(encryptionKey)
-	} else {
-		blockCipher = c.new(inputKey)
-	}
+	blockCipher := c.new(encryptionKey)
+
 	return mode.new(blockCipher)
 }

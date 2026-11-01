@@ -70,11 +70,6 @@ type Signature struct {
 	// of bad signed data.
 	HashTag [2]byte
 
-	// Metadata includes format, filename and time, and is protected by v5
-	// signatures of type 0x00 or 0x01. This metadata is included into the hash
-	// computation; if nil, six 0x00 bytes are used instead. See section 5.2.4.
-	Metadata *LiteralData
-
 	CreationTime time.Time
 
 	RSASignature         encoding.Field
@@ -182,13 +177,9 @@ func (sig *Signature) parse(r io.Reader) (err error) {
 		return
 	}
 	sig.Version = int(buf[0])
-	if sig.Version != 4 && sig.Version != 5 && sig.Version != 6 {
+	if sig.Version != 4 && sig.Version != 6 {
 		err = errors.UnsupportedError("signature packet version " + strconv.Itoa(int(buf[0])))
 		return
-	}
-
-	if V5Disabled && sig.Version == 5 {
-		return errors.UnsupportedError("support for parsing v5 entities is disabled; build with `-tags v5` if needed")
 	}
 
 	if sig.Version == 6 {
@@ -212,7 +203,7 @@ func (sig *Signature) parse(r io.Reader) (err error) {
 
 	var ok bool
 
-	if sig.Version < 5 {
+	if sig.Version == 4 {
 		sig.Hash, ok = algorithm.HashIdToHashWithSha1(buf[2])
 	} else {
 		sig.Hash, ok = algorithm.HashIdToHash(buf[2])
@@ -801,7 +792,7 @@ func (sig *Signature) buildHashSuffix(hashedSubpackets []byte) (err error) {
 	var hashId byte
 	var ok bool
 
-	if sig.Version < 5 {
+	if sig.Version == 4 {
 		hashId, ok = algorithm.HashToHashIdWithSha1(sig.Hash)
 	} else {
 		hashId, ok = algorithm.HashToHashId(sig.Hash)
@@ -837,20 +828,12 @@ func (sig *Signature) buildHashSuffix(hashedSubpackets []byte) (err error) {
 	hashedFields.Write(hashedSubpackets)
 
 	var l uint64 = uint64(lenPrefix + len(hashedSubpackets))
-	if sig.Version == 5 {
-		// v5 case
-		hashedFields.Write([]byte{0x05, 0xff})
-		hashedFields.Write([]byte{
-			uint8(l >> 56), uint8(l >> 48), uint8(l >> 40), uint8(l >> 32),
-			uint8(l >> 24), uint8(l >> 16), uint8(l >> 8), uint8(l),
-		})
-	} else {
-		// v4 and v6 case
-		hashedFields.Write([]byte{byte(sig.Version), 0xff})
-		hashedFields.Write([]byte{
-			uint8(l >> 24), uint8(l >> 16), uint8(l >> 8), uint8(l),
-		})
-	}
+
+	hashedFields.Write([]byte{byte(sig.Version), 0xff})
+	hashedFields.Write([]byte{
+		uint8(l >> 24), uint8(l >> 16), uint8(l >> 8), uint8(l),
+	})
+
 	sig.HashSuffix = make([]byte, hashedFields.Len())
 	copy(sig.HashSuffix, hashedFields.Bytes())
 	return
@@ -863,9 +846,6 @@ func (sig *Signature) signPrepareHash(h hash.Hash) (digest []byte, err error) {
 	err = sig.buildHashSuffix(hashedSubpackets)
 	if err != nil {
 		return
-	}
-	if sig.Version == 5 && (sig.SigType == 0x00 || sig.SigType == 0x01) {
-		sig.AddMetadataToHashSuffix()
 	}
 
 	h.Write(sig.HashSuffix)
@@ -1429,7 +1409,7 @@ func (sig *Signature) buildSubpackets(config *Config) (subpackets []outputSubpac
 	// Issuer Fingerprint
 	if sig.IssuerKeyVersion != 0 && sig.IssuerFingerprint != nil {
 		contents := append([]uint8{sig.IssuerKeyVersion}, sig.IssuerFingerprint...)
-		subpackets = append(subpackets, outputSubpacket{true, issuerFingerprintSubpacket, sig.Version >= 5, contents})
+		subpackets = append(subpackets, outputSubpacket{true, issuerFingerprintSubpacket, sig.Version == 6, contents})
 	}
 	// Intended Recipient Fingerprint
 	for _, recipient := range sig.IntendedRecipients {
@@ -1452,52 +1432,6 @@ func (sig *Signature) buildSubpackets(config *Config) (subpackets []outputSubpac
 		subpackets = append(subpackets, outputSubpacket{true, prefCipherSuitesSubpacket, false, serialized})
 	}
 	return
-}
-
-// AddMetadataToHashSuffix modifies the current hash suffix to include metadata
-// (format, filename, and time). Version 5 keys protect this data including it
-// in the hash computation. See section 5.2.4.
-func (sig *Signature) AddMetadataToHashSuffix() {
-	if sig == nil || sig.Version != 5 {
-		return
-	}
-	if sig.SigType != 0x00 && sig.SigType != 0x01 {
-		return
-	}
-	lit := sig.Metadata
-	if lit == nil {
-		// This will translate into six 0x00 bytes.
-		lit = &LiteralData{}
-	}
-
-	// Extract the current byte count
-	n := sig.HashSuffix[len(sig.HashSuffix)-8:]
-	l := uint64(
-		uint64(n[0])<<56 | uint64(n[1])<<48 | uint64(n[2])<<40 | uint64(n[3])<<32 |
-			uint64(n[4])<<24 | uint64(n[5])<<16 | uint64(n[6])<<8 | uint64(n[7]))
-
-	suffix := bytes.NewBuffer(nil)
-	suffix.Write(sig.HashSuffix[:l])
-
-	// Add the metadata
-	var buf [4]byte
-	buf[0] = lit.Format
-	fileName := lit.FileName
-	if len(lit.FileName) > 255 {
-		fileName = fileName[:255]
-	}
-	buf[1] = byte(len(fileName))
-	suffix.Write(buf[:2])
-	suffix.Write([]byte(lit.FileName))
-	binary.BigEndian.PutUint32(buf[:], lit.Time)
-	suffix.Write(buf[:])
-
-	suffix.Write([]byte{0x05, 0xff})
-	suffix.Write([]byte{
-		uint8(l >> 56), uint8(l >> 48), uint8(l >> 40), uint8(l >> 32),
-		uint8(l >> 24), uint8(l >> 16), uint8(l >> 8), uint8(l),
-	})
-	sig.HashSuffix = suffix.Bytes()
 }
 
 // SaltLengthForHash selects the required salt length for the given hash algorithm,

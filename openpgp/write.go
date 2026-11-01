@@ -310,15 +310,8 @@ func writeAndSign(payload io.WriteCloser, candidateHashes []uint8, signed *Entit
 		if err != nil {
 			return nil, err
 		}
-		metadata := &packet.LiteralData{
-			Format:   'u',
-			FileName: hints.FileName,
-			Time:     epochSeconds,
-		}
-		if hints.IsBinary {
-			metadata.Format = 'b'
-		}
-		return signatureWriter{payload, literalData, hash, wrappedHash, h, salt, signer, sigType, config, metadata}, nil
+
+		return signatureWriter{payload, literalData, hash, wrappedHash, h, salt, signer, sigType, config}, nil
 	}
 	return literalData, nil
 }
@@ -509,7 +502,6 @@ type signatureWriter struct {
 	signer        *packet.PrivateKey
 	sigType       packet.SignatureType
 	config        *packet.Config
-	metadata      *packet.LiteralData // V5 signatures protect document metadata
 }
 
 func (s signatureWriter) Write(data []byte) (int, error) {
@@ -527,7 +519,6 @@ func (s signatureWriter) Write(data []byte) (int, error) {
 func (s signatureWriter) Close() error {
 	sig := createSignaturePacket(&s.signer.PublicKey, s.sigType, s.config)
 	sig.Hash = s.hashType
-	sig.Metadata = s.metadata
 
 	if err := sig.SetSalt(s.salt); err != nil {
 		return err

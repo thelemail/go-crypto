@@ -406,9 +406,6 @@ func (scr *signatureCheckReader) Read(buf []byte) (int, error) {
 		for readError == nil {
 			var ok bool
 			if sig, ok = p.(*packet.Signature); ok {
-				if sig.Version == 5 && (sig.SigType == 0x00 || sig.SigType == 0x01) {
-					sig.Metadata = scr.md.LiteralData
-				}
 
 				// If signature KeyID matches
 				if scr.md.SignedBy != nil && sig.IssuerKeyId != nil && *sig.IssuerKeyId == scr.md.SignedByKeyId {

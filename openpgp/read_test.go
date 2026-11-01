@@ -6,8 +6,6 @@ package openpgp
 
 import (
 	"bytes"
-	"crypto/sha512"
-	"encoding/base64"
 	"encoding/hex"
 	"io"
 	"io/ioutil"
@@ -692,111 +690,6 @@ func testSymmetricDecryptionArgon2Run(t *testing.T, armoredEncryptedMessage []by
 	}
 }
 
-func TestAsymmestricAeadOcbOpenPGPjsCompressedMessage(t *testing.T) {
-	if packet.V5Disabled {
-		t.Skip()
-	}
-	// Read key from file
-	armored, err := os.Open("test_data/aead-ocb-asym-key.asc")
-	if err != nil {
-		t.Fatal(err)
-	}
-	el, err := ReadArmoredKeyRing(armored)
-	if err != nil {
-		t.Fatal(err)
-	}
-	// Read ciphertext from file
-	ciphertext, err := os.Open("test_data/aead-ocb-asym-message.asc")
-	if err != nil {
-		t.Fatal(err)
-	}
-	armoredEncryptedMessage, err := io.ReadAll(ciphertext)
-	if err != nil {
-		t.Fatal(err)
-	}
-	// Unarmor string
-	raw, err := armor.Decode(strings.NewReader(string(armoredEncryptedMessage)))
-	if err != nil {
-		t.Error(err)
-		return
-	}
-	// Decrypt message
-	md, err := ReadMessage(raw.Body, el, nil, nil)
-	if err != nil {
-		t.Error(err)
-		return
-	}
-	// Read contents
-	contents, err := io.ReadAll(md.UnverifiedBody)
-	if err != nil && err != io.ErrUnexpectedEOF {
-		t.Errorf("error reading UnverifiedBody: %s", err)
-	}
-
-	wantHash := modestProposalSha512
-	gotHashRaw := sha512.Sum512(contents)
-	gotHash := base64.StdEncoding.EncodeToString(gotHashRaw[:])
-
-	if wantHash != gotHash {
-		t.Fatal("Did not decrypt OpenPGPjs message correctly")
-	}
-}
-
-func TestSymmetricAeadEaxOpenPGPJsMessage(t *testing.T) {
-	if packet.V5Disabled {
-		t.Skip()
-	}
-	key := []byte{79, 41, 206, 112, 224, 133, 140, 223, 27, 61, 227, 57, 114,
-		118, 64, 60, 177, 26, 42, 174, 151, 5, 186, 74, 226, 97, 214, 63, 114, 77,
-		215, 121}
-
-	file, err := os.Open("test_data/aead-eax-packet.b64")
-	if err != nil {
-		t.Fatal(err)
-	}
-	fileBytes, err := io.ReadAll(file)
-	if err != nil {
-		t.Fatal(err)
-	}
-	// Decode from base 64
-	raw, err := base64.StdEncoding.DecodeString(string(fileBytes))
-	if err != nil {
-		t.Fatal(err)
-	}
-	r := bytes.NewBuffer(raw)
-	// Read packet
-	p, err := packet.Read(r)
-	if err != nil {
-		panic(err)
-	}
-
-	// Decrypt with key
-	var edp = p.(*packet.AEADEncrypted)
-	rc, err := edp.Decrypt(packet.CipherFunction(0), key)
-	if err != nil {
-		panic(err)
-	}
-	// Read literal data packet
-	p, err = packet.Read(rc)
-	if err != nil {
-		t.Fatal(err)
-	}
-	ld := p.(*packet.LiteralData)
-
-	// Read contents
-	contents, err := io.ReadAll(ld.Body)
-	if err != nil && err != io.ErrUnexpectedEOF {
-		t.Errorf("error reading UnverifiedBody: %s", err)
-	}
-
-	wantHash := modestProposalSha512
-	gotHashRaw := sha512.Sum512(contents)
-	gotHash := base64.StdEncoding.EncodeToString(gotHashRaw[:])
-
-	if wantHash != gotHash {
-		t.Fatal("Did not decrypt OpenPGPjs message correctly")
-	}
-}
-
 func TestCorruptedMessageInvalidSigHeader(t *testing.T) {
 	// Decrypt message with corrupted MDC and invalid one-pass-signature header
 	// Expect parsing errors over unverified decrypted data to be opaque
@@ -913,42 +806,4 @@ func TestMessageWithoutMdc(t *testing.T) {
 			t.Error("unexpected message content")
 		}
 	})
-}
-
-func TestReadV5Messages(t *testing.T) {
-	if packet.V5Disabled {
-		t.Skip()
-	}
-	key, err := ReadArmoredKeyRing(strings.NewReader(keyv5Test))
-	if err != nil {
-		t.Error(err)
-		return
-	}
-	keyVer, err := ReadArmoredKeyRing(strings.NewReader(certv5Test))
-	if err != nil {
-		t.Error(err)
-		return
-	}
-	keys := append(key, keyVer...)
-	msgReader, err := armor.Decode(strings.NewReader(msgv5Test))
-	if err != nil {
-		t.Error(err)
-		return
-	}
-	md, err := ReadMessage(msgReader.Body, keys, nil, nil)
-	if err != nil {
-		t.Error(err)
-		return
-	}
-	contents, err := io.ReadAll(md.UnverifiedBody)
-	if err != nil {
-		t.Error(err)
-		return
-	}
-	if string(contents) != "Hello World :)" {
-		t.Errorf("decrypted message is wrong: %s", contents)
-	}
-	if md.SignatureError != nil {
-		t.Error("expected no signature error, got:", md.SignatureError)
-	}
 }
