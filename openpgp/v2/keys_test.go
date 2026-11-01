@@ -1567,13 +1567,9 @@ func TestKeyValidateOnDecrypt(t *testing.T) {
 		})
 
 		ecdsaCurves := map[string]packet.Curve{
-			"NIST P-256":      packet.CurveNistP256,
-			"NIST P-384":      packet.CurveNistP384,
-			"NIST P-521":      packet.CurveNistP521,
-			"Brainpool P-256": packet.CurveBrainpoolP256,
-			"Brainpool P-384": packet.CurveBrainpoolP384,
-			"Brainpool P-512": packet.CurveBrainpoolP512,
-			"SecP256k1":       packet.CurveSecP256k1,
+			"NIST P-256": packet.CurveNistP256,
+			"NIST P-384": packet.CurveNistP384,
+			"NIST P-521": packet.CurveNistP521,
 		}
 
 		for name, curveType := range ecdsaCurves {

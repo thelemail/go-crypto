@@ -47,18 +47,6 @@ var benchmarkTestSet = map[string]*packet.Config{
 		Algorithm: packet.PubKeyAlgoECDSA,
 		Curve:     packet.CurveNistP521,
 	},
-	"Brainpool256": {
-		Algorithm: packet.PubKeyAlgoECDSA,
-		Curve:     packet.CurveBrainpoolP256,
-	},
-	"Brainpool384": {
-		Algorithm: packet.PubKeyAlgoECDSA,
-		Curve:     packet.CurveBrainpoolP384,
-	},
-	"Brainpool512": {
-		Algorithm: packet.PubKeyAlgoECDSA,
-		Curve:     packet.CurveBrainpoolP512,
-	},
 	"ML-DSA3Ed25519_ML-KEM768X25519": {
 		Algorithm: packet.PubKeyAlgoMldsa65Ed25519,
 	},

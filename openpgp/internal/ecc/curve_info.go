@@ -5,8 +5,6 @@ import (
 	"bytes"
 	"crypto/elliptic"
 
-	"github.com/thelemail/go-crypto/bitcurves"
-	"github.com/thelemail/go-crypto/brainpool"
 	"github.com/thelemail/go-crypto/openpgp/internal/encoding"
 )
 
@@ -38,12 +36,6 @@ var Curves = []CurveInfo{
 		Curve:   NewGenericCurve(elliptic.P521()),
 	},
 	{
-		// SecP256k1
-		GenName: "SecP256k1",
-		Oid:     encoding.NewOID([]byte{0x2B, 0x81, 0x04, 0x00, 0x0A}),
-		Curve:   NewGenericCurve(bitcurves.S256()),
-	},
-	{
 		// Curve25519
 		GenName: Curve25519GenName,
 		Oid:     encoding.NewOID([]byte{0x2B, 0x06, 0x01, 0x04, 0x01, 0x97, 0x55, 0x01, 0x05, 0x01}),
@@ -66,24 +58,6 @@ var Curves = []CurveInfo{
 		GenName: "Curve448",
 		Oid:     encoding.NewOID([]byte{0x2B, 0x65, 0x71}),
 		Curve:   NewEd448(),
-	},
-	{
-		// BrainpoolP256r1
-		GenName: "BrainpoolP256",
-		Oid:     encoding.NewOID([]byte{0x2B, 0x24, 0x03, 0x03, 0x02, 0x08, 0x01, 0x01, 0x07}),
-		Curve:   NewGenericCurve(brainpool.P256r1()),
-	},
-	{
-		// BrainpoolP384r1
-		GenName: "BrainpoolP384",
-		Oid:     encoding.NewOID([]byte{0x2B, 0x24, 0x03, 0x03, 0x02, 0x08, 0x01, 0x01, 0x0B}),
-		Curve:   NewGenericCurve(brainpool.P384r1()),
-	},
-	{
-		// BrainpoolP512r1
-		GenName: "BrainpoolP512",
-		Oid:     encoding.NewOID([]byte{0x2B, 0x24, 0x03, 0x03, 0x02, 0x08, 0x01, 0x01, 0x0D}),
-		Curve:   NewGenericCurve(brainpool.P512r1()),
 	},
 }
 
