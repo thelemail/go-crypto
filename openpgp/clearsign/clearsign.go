@@ -538,14 +538,12 @@ func acceptableHashesToWrite(singingKey *packet.PublicKey) []crypto.Hash {
 	switch singingKey.PubKeyAlgo {
 	case packet.PubKeyAlgoECDSA, packet.PubKeyAlgoEdDSA:
 		if curve, err := singingKey.Curve(); err == nil {
-			if curve == packet.CurveNistP521 ||
-				curve == packet.CurveBrainpoolP512 {
+			if curve == packet.CurveNistP521 {
 				return []crypto.Hash{
 					crypto.SHA512,
 					crypto.SHA3_512,
 				}
-			} else if curve == packet.CurveBrainpoolP384 ||
-				curve == packet.CurveNistP384 {
+			} else if curve == packet.CurveNistP384 {
 				return []crypto.Hash{
 					crypto.SHA384,
 					crypto.SHA512,
