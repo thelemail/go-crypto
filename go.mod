@@ -1,6 +1,6 @@
 module github.com/thelemail/go-crypto
 
-go 1.27.3
+go 1.27.0
 
 require (
 	github.com/cloudflare/circl v1.6.3
