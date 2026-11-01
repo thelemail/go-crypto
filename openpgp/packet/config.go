@@ -11,7 +11,7 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/ProtonMail/go-crypto/openpgp/s2k"
+	"github.com/thelemail/go-crypto/openpgp/s2k"
 )
 
 var (

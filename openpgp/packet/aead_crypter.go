@@ -7,7 +7,7 @@ import (
 	"encoding/binary"
 	"io"
 
-	"github.com/ProtonMail/go-crypto/openpgp/errors"
+	"github.com/thelemail/go-crypto/openpgp/errors"
 )
 
 // aeadCrypter is an AEAD opener/sealer, its configuration, and data for en/decryption.

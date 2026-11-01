@@ -6,9 +6,9 @@ import (
 	"crypto/rand"
 	"testing"
 
-	"github.com/ProtonMail/go-crypto/openpgp/internal/algorithm"
-	"github.com/ProtonMail/go-crypto/openpgp/mlkem_ecdh"
-	"github.com/ProtonMail/go-crypto/openpgp/packet"
+	"github.com/thelemail/go-crypto/openpgp/internal/algorithm"
+	"github.com/thelemail/go-crypto/openpgp/mlkem_ecdh"
+	"github.com/thelemail/go-crypto/openpgp/packet"
 )
 
 func TestEncryptDecrypt(t *testing.T) {

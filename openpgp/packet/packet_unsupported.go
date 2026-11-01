@@ -3,7 +3,7 @@ package packet
 import (
 	"io"
 
-	"github.com/ProtonMail/go-crypto/openpgp/errors"
+	"github.com/thelemail/go-crypto/openpgp/errors"
 )
 
 // UnsupportedPackage represents a OpenPGP packet with a known packet type

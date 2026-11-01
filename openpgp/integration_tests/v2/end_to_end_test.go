@@ -12,9 +12,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ProtonMail/go-crypto/openpgp/armor"
-	"github.com/ProtonMail/go-crypto/openpgp/packet"
-	openpgp "github.com/ProtonMail/go-crypto/openpgp/v2"
+	"github.com/thelemail/go-crypto/openpgp/armor"
+	"github.com/thelemail/go-crypto/openpgp/packet"
+	openpgp "github.com/thelemail/go-crypto/openpgp/v2"
 )
 
 /////////////////////////////////////////////////////////////////////////////

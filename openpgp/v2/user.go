@@ -4,8 +4,8 @@ import (
 	"io"
 	"time"
 
-	"github.com/ProtonMail/go-crypto/openpgp/errors"
-	"github.com/ProtonMail/go-crypto/openpgp/packet"
+	"github.com/thelemail/go-crypto/openpgp/errors"
+	"github.com/thelemail/go-crypto/openpgp/packet"
 )
 
 // Identity represents an identity claimed by an Entity and zero or more

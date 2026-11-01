@@ -8,11 +8,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ProtonMail/go-crypto/openpgp/errors"
-	"github.com/ProtonMail/go-crypto/openpgp/mldsa_eddsa"
-	"github.com/ProtonMail/go-crypto/openpgp/mlkem_ecdh"
+	"github.com/thelemail/go-crypto/openpgp/errors"
+	"github.com/thelemail/go-crypto/openpgp/mldsa_eddsa"
+	"github.com/thelemail/go-crypto/openpgp/mlkem_ecdh"
 
-	"github.com/ProtonMail/go-crypto/openpgp/packet"
+	"github.com/thelemail/go-crypto/openpgp/packet"
 )
 
 var foreignKeysV6 = []string{

@@ -5,9 +5,9 @@ import (
 	"crypto/subtle"
 	"io"
 
-	"github.com/ProtonMail/go-crypto/openpgp/aes/keywrap"
-	"github.com/ProtonMail/go-crypto/openpgp/errors"
 	x448lib "github.com/cloudflare/circl/dh/x448"
+	"github.com/thelemail/go-crypto/openpgp/aes/keywrap"
+	"github.com/thelemail/go-crypto/openpgp/errors"
 	"golang.org/x/crypto/hkdf"
 )
 

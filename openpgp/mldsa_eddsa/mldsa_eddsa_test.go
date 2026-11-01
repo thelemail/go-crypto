@@ -6,8 +6,8 @@ import (
 	"io"
 	"testing"
 
-	"github.com/ProtonMail/go-crypto/openpgp/mldsa_eddsa"
-	"github.com/ProtonMail/go-crypto/openpgp/packet"
+	"github.com/thelemail/go-crypto/openpgp/mldsa_eddsa"
+	"github.com/thelemail/go-crypto/openpgp/packet"
 )
 
 func TestSignVerify(t *testing.T) {

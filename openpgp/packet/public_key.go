@@ -19,21 +19,21 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/ProtonMail/go-crypto/openpgp/ecdh"
-	"github.com/ProtonMail/go-crypto/openpgp/ecdsa"
-	"github.com/ProtonMail/go-crypto/openpgp/ed25519"
-	"github.com/ProtonMail/go-crypto/openpgp/ed448"
-	"github.com/ProtonMail/go-crypto/openpgp/eddsa"
-	"github.com/ProtonMail/go-crypto/openpgp/elgamal"
-	"github.com/ProtonMail/go-crypto/openpgp/errors"
-	"github.com/ProtonMail/go-crypto/openpgp/internal/algorithm"
-	"github.com/ProtonMail/go-crypto/openpgp/internal/ecc"
-	"github.com/ProtonMail/go-crypto/openpgp/internal/encoding"
-	"github.com/ProtonMail/go-crypto/openpgp/mldsa_eddsa"
-	"github.com/ProtonMail/go-crypto/openpgp/mlkem_ecdh"
-	"github.com/ProtonMail/go-crypto/openpgp/slhdsa"
-	"github.com/ProtonMail/go-crypto/openpgp/x25519"
-	"github.com/ProtonMail/go-crypto/openpgp/x448"
+	"github.com/thelemail/go-crypto/openpgp/ecdh"
+	"github.com/thelemail/go-crypto/openpgp/ecdsa"
+	"github.com/thelemail/go-crypto/openpgp/ed25519"
+	"github.com/thelemail/go-crypto/openpgp/ed448"
+	"github.com/thelemail/go-crypto/openpgp/eddsa"
+	"github.com/thelemail/go-crypto/openpgp/elgamal"
+	"github.com/thelemail/go-crypto/openpgp/errors"
+	"github.com/thelemail/go-crypto/openpgp/internal/algorithm"
+	"github.com/thelemail/go-crypto/openpgp/internal/ecc"
+	"github.com/thelemail/go-crypto/openpgp/internal/encoding"
+	"github.com/thelemail/go-crypto/openpgp/mldsa_eddsa"
+	"github.com/thelemail/go-crypto/openpgp/mlkem_ecdh"
+	"github.com/thelemail/go-crypto/openpgp/slhdsa"
+	"github.com/thelemail/go-crypto/openpgp/x25519"
+	"github.com/thelemail/go-crypto/openpgp/x448"
 	"github.com/cloudflare/circl/kem"
 	"github.com/cloudflare/circl/kem/mlkem/mlkem1024"
 	"github.com/cloudflare/circl/kem/mlkem/mlkem768"
@@ -1023,7 +1023,7 @@ func (pk *PublicKey) VerifySignature(signed hash.Hash, sig *Signature) (err erro
 	}
 	signed.Write(sig.HashSuffix)
 	hashBytes := signed.Sum(nil)
-	// see discussion https://github.com/ProtonMail/go-crypto/issues/107
+	// see discussion https://github.com/thelemail/go-crypto/issues/107
 	if sig.Version >= 5 && (hashBytes[0] != sig.HashTag[0] || hashBytes[1] != sig.HashTag[1]) {
 		return errors.SignatureError("hash tag doesn't match")
 	}

@@ -5,7 +5,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"fmt"
-	"github.com/ProtonMail/go-crypto/openpgp/errors"
+	"github.com/thelemail/go-crypto/openpgp/errors"
 	"io"
 	"math/big"
 )

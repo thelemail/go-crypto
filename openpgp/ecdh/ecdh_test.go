@@ -12,10 +12,10 @@ import (
 	"io"
 	"testing"
 
-	"github.com/ProtonMail/go-crypto/openpgp/internal/ecc"
+	"github.com/thelemail/go-crypto/openpgp/internal/ecc"
 
-	"github.com/ProtonMail/go-crypto/openpgp/aes/keywrap"
-	"github.com/ProtonMail/go-crypto/openpgp/internal/algorithm"
+	"github.com/thelemail/go-crypto/openpgp/aes/keywrap"
+	"github.com/thelemail/go-crypto/openpgp/internal/algorithm"
 )
 
 func TestCurves(t *testing.T) {

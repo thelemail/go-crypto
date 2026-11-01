@@ -7,7 +7,7 @@ package encoding
 import (
 	"io"
 
-	"github.com/ProtonMail/go-crypto/openpgp/errors"
+	"github.com/thelemail/go-crypto/openpgp/errors"
 )
 
 // OID is used to store a variable-length field with a one-octet size

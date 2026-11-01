@@ -11,9 +11,9 @@ import (
 	"errors"
 	"io"
 
-	"github.com/ProtonMail/go-crypto/openpgp/aes/keywrap"
-	"github.com/ProtonMail/go-crypto/openpgp/internal/algorithm"
-	"github.com/ProtonMail/go-crypto/openpgp/internal/ecc"
+	"github.com/thelemail/go-crypto/openpgp/aes/keywrap"
+	"github.com/thelemail/go-crypto/openpgp/internal/algorithm"
+	"github.com/thelemail/go-crypto/openpgp/internal/ecc"
 )
 
 type KDF struct {

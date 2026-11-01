@@ -6,8 +6,8 @@ import (
 	"crypto/subtle"
 	"io"
 
-	"github.com/ProtonMail/go-crypto/openpgp/errors"
 	ed25519lib "github.com/cloudflare/circl/sign/ed25519"
+	"github.com/thelemail/go-crypto/openpgp/errors"
 )
 
 const (

@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ProtonMail/go-crypto/openpgp/packet"
+	"github.com/thelemail/go-crypto/openpgp/packet"
 )
 
 const benchmarkMessageSize = 1024 // Signed / encrypted message size in bytes

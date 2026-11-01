@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/ProtonMail/go-crypto/openpgp/errors"
 	"github.com/cloudflare/circl/sign"
+	"github.com/thelemail/go-crypto/openpgp/errors"
 )
 
 type PublicKey struct {

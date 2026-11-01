@@ -13,7 +13,7 @@ import (
 	"io"
 	"testing"
 
-	"github.com/ProtonMail/go-crypto/openpgp/errors"
+	"github.com/thelemail/go-crypto/openpgp/errors"
 )
 
 // TestReader wraps a []byte and returns reads of a specific length.

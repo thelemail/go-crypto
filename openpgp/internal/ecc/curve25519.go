@@ -5,8 +5,8 @@ import (
 	"crypto/subtle"
 	"io"
 
-	"github.com/ProtonMail/go-crypto/openpgp/errors"
 	x25519lib "github.com/cloudflare/circl/dh/x25519"
+	"github.com/thelemail/go-crypto/openpgp/errors"
 )
 
 type curve25519 struct{}

@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ProtonMail/go-crypto/openpgp/armor"
+	"github.com/thelemail/go-crypto/openpgp/armor"
 )
 
 var pqcDraftVectors = map[string]struct {

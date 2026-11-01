@@ -6,8 +6,8 @@ import (
 	"io"
 	"testing"
 
-	"github.com/ProtonMail/go-crypto/openpgp/packet"
-	"github.com/ProtonMail/go-crypto/openpgp/slhdsa"
+	"github.com/thelemail/go-crypto/openpgp/packet"
+	"github.com/thelemail/go-crypto/openpgp/slhdsa"
 )
 
 var algorithms = map[string]packet.PublicKeyAlgorithm{

@@ -9,10 +9,10 @@ import (
 
 	"golang.org/x/crypto/sha3"
 
-	"github.com/ProtonMail/go-crypto/openpgp/aes/keywrap"
-	"github.com/ProtonMail/go-crypto/openpgp/errors"
-	"github.com/ProtonMail/go-crypto/openpgp/internal/ecc"
 	"github.com/cloudflare/circl/kem"
+	"github.com/thelemail/go-crypto/openpgp/aes/keywrap"
+	"github.com/thelemail/go-crypto/openpgp/errors"
+	"github.com/thelemail/go-crypto/openpgp/internal/ecc"
 )
 
 const (

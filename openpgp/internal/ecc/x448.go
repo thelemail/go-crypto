@@ -5,8 +5,8 @@ import (
 	"crypto/subtle"
 	"io"
 
-	"github.com/ProtonMail/go-crypto/openpgp/errors"
 	x448lib "github.com/cloudflare/circl/dh/x448"
+	"github.com/thelemail/go-crypto/openpgp/errors"
 )
 
 type x448 struct{}
