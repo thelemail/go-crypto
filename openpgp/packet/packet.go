@@ -331,7 +331,7 @@ const (
 	packetTypeUserAttribute                            packetType = 17
 	packetTypeSymmetricallyEncryptedIntegrityProtected packetType = 18
 	packetTypeAEADEncrypted                            packetType = 20
-	packetPadding                                      packetType = 21
+	packetTypePadding                                  packetType = 21
 )
 
 // EncryptedDataPacket holds encrypted data. It is currently implemented by
@@ -382,7 +382,7 @@ func Read(r io.Reader) (p Packet, err error) {
 		p = se
 	case packetTypeAEADEncrypted:
 		p = new(AEADEncrypted)
-	case packetPadding:
+	case packetTypePadding:
 		p = Padding(len)
 	case packetTypeMarker:
 		p = new(Marker)
@@ -446,7 +446,7 @@ func ReadWithCheck(r io.Reader, sequence *SequenceVerifier) (p Packet, msgErr er
 	case packetTypeAEADEncrypted:
 		msgErr = sequence.Next(EncSymbol)
 		p = new(AEADEncrypted)
-	case packetPadding:
+	case packetTypePadding:
 		p = Padding(len)
 	case packetTypeMarker:
 		p = new(Marker)
