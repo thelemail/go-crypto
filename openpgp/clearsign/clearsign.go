@@ -536,15 +536,9 @@ func nameOfHash(h crypto.Hash) string {
 
 func acceptableHashesToWrite(singingKey *packet.PublicKey) []crypto.Hash {
 	switch singingKey.PubKeyAlgo {
-	case packet.PubKeyAlgoEd448:
-		return []crypto.Hash{
-			crypto.SHA512,
-			crypto.SHA3_512,
-		}
 	case packet.PubKeyAlgoECDSA, packet.PubKeyAlgoEdDSA:
 		if curve, err := singingKey.Curve(); err == nil {
-			if curve == packet.Curve448 ||
-				curve == packet.CurveNistP521 ||
+			if curve == packet.CurveNistP521 ||
 				curve == packet.CurveBrainpoolP512 {
 				return []crypto.Hash{
 					crypto.SHA512,

@@ -22,7 +22,6 @@ import (
 	"github.com/thelemail/go-crypto/openpgp/ecdh"
 	"github.com/thelemail/go-crypto/openpgp/ecdsa"
 	"github.com/thelemail/go-crypto/openpgp/ed25519"
-	"github.com/thelemail/go-crypto/openpgp/ed448"
 	"github.com/thelemail/go-crypto/openpgp/eddsa"
 	"github.com/thelemail/go-crypto/openpgp/elgamal"
 	"github.com/thelemail/go-crypto/openpgp/errors"
@@ -32,7 +31,6 @@ import (
 	"github.com/thelemail/go-crypto/openpgp/mldsa_eddsa"
 	"github.com/thelemail/go-crypto/openpgp/mlkem_ecdh"
 	"github.com/thelemail/go-crypto/openpgp/x25519"
-	"github.com/thelemail/go-crypto/openpgp/x448"
 	"github.com/cloudflare/circl/kem"
 	"github.com/cloudflare/circl/kem/mlkem/mlkem768"
 	"github.com/cloudflare/circl/sign"
@@ -44,7 +42,7 @@ type PublicKey struct {
 	Version      int
 	CreationTime time.Time
 	PubKeyAlgo   PublicKeyAlgorithm
-	PublicKey    interface{} // *rsa.PublicKey, *dsa.PublicKey, *ecdsa.PublicKey or *eddsa.PublicKey, *x25519.PublicKey, *x448.PublicKey, *ed25519.PublicKey, *ed448.PublicKey, or *mlkem_ecdh.PublicKey
+	PublicKey    interface{} // *rsa.PublicKey, *dsa.PublicKey, *ecdsa.PublicKey or *eddsa.PublicKey, *x25519.PublicKey, *ed25519.PublicKey, or *mlkem_ecdh.PublicKey
 	Fingerprint  []byte
 	KeyId        uint64
 	IsSubkey     bool
@@ -201,35 +199,11 @@ func NewX25519PublicKey(creationTime time.Time, pub *x25519.PublicKey) *PublicKe
 	return pk
 }
 
-func NewX448PublicKey(creationTime time.Time, pub *x448.PublicKey) *PublicKey {
-	pk := &PublicKey{
-		Version:      4,
-		CreationTime: creationTime,
-		PubKeyAlgo:   PubKeyAlgoX448,
-		PublicKey:    pub,
-	}
-
-	pk.setFingerprintAndKeyId()
-	return pk
-}
-
 func NewEd25519PublicKey(creationTime time.Time, pub *ed25519.PublicKey) *PublicKey {
 	pk := &PublicKey{
 		Version:      4,
 		CreationTime: creationTime,
 		PubKeyAlgo:   PubKeyAlgoEd25519,
-		PublicKey:    pub,
-	}
-
-	pk.setFingerprintAndKeyId()
-	return pk
-}
-
-func NewEd448PublicKey(creationTime time.Time, pub *ed448.PublicKey) *PublicKey {
-	pk := &PublicKey{
-		Version:      4,
-		CreationTime: creationTime,
-		PubKeyAlgo:   PubKeyAlgoEd448,
 		PublicKey:    pub,
 	}
 
@@ -305,12 +279,8 @@ func (pk *PublicKey) parse(r io.Reader) (err error) {
 		err = pk.parseEdDSA(r)
 	case PubKeyAlgoX25519:
 		err = pk.parseX25519(r)
-	case PubKeyAlgoX448:
-		err = pk.parseX448(r)
 	case PubKeyAlgoEd25519:
 		err = pk.parseEd25519(r)
-	case PubKeyAlgoEd448:
-		err = pk.parseEd448(r)
 	case PubKeyAlgoMlkem768X25519:
 		if !(pk.Version == 4 || pk.Version >= 6) {
 			return goerrors.New("openpgp: ML-KEM-768+X25519 may only be used with v4 or v6+")
@@ -600,19 +570,6 @@ func (pk *PublicKey) parseX25519(r io.Reader) (err error) {
 	return
 }
 
-func (pk *PublicKey) parseX448(r io.Reader) (err error) {
-	point := make([]byte, x448.KeySize)
-	_, err = io.ReadFull(r, point)
-	if err != nil {
-		return
-	}
-	pub := &x448.PublicKey{
-		Point: point,
-	}
-	pk.PublicKey = pub
-	return
-}
-
 func (pk *PublicKey) parseEd25519(r io.Reader) (err error) {
 	point := make([]byte, ed25519.PublicKeySize)
 	_, err = io.ReadFull(r, point)
@@ -620,19 +577,6 @@ func (pk *PublicKey) parseEd25519(r io.Reader) (err error) {
 		return
 	}
 	pub := &ed25519.PublicKey{
-		Point: point,
-	}
-	pk.PublicKey = pub
-	return
-}
-
-func (pk *PublicKey) parseEd448(r io.Reader) (err error) {
-	point := make([]byte, ed448.PublicKeySize)
-	_, err = io.ReadFull(r, point)
-	if err != nil {
-		return
-	}
-	pub := &ed448.PublicKey{
 		Point: point,
 	}
 	pk.PublicKey = pub
@@ -789,12 +733,8 @@ func (pk *PublicKey) algorithmSpecificByteCount() uint32 {
 		length += uint32(pk.p.EncodedLength())
 	case PubKeyAlgoX25519:
 		length += x25519.KeySize
-	case PubKeyAlgoX448:
-		length += x448.KeySize
 	case PubKeyAlgoEd25519:
 		length += ed25519.PublicKeySize
-	case PubKeyAlgoEd448:
-		length += ed448.PublicKeySize
 	case PubKeyAlgoMlkem768X25519:
 		length += x25519.KeySize
 		length += mlkem768.PublicKeySize
@@ -881,16 +821,8 @@ func (pk *PublicKey) serializeWithoutHeaders(w io.Writer) (err error) {
 		publicKey := pk.PublicKey.(*x25519.PublicKey)
 		_, err = w.Write(publicKey.Point)
 		return
-	case PubKeyAlgoX448:
-		publicKey := pk.PublicKey.(*x448.PublicKey)
-		_, err = w.Write(publicKey.Point)
-		return
 	case PubKeyAlgoEd25519:
 		publicKey := pk.PublicKey.(*ed25519.PublicKey)
-		_, err = w.Write(publicKey.Point)
-		return
-	case PubKeyAlgoEd448:
-		publicKey := pk.PublicKey.(*ed448.PublicKey)
 		_, err = w.Write(publicKey.Point)
 		return
 	case PubKeyAlgoMlkem768X25519:
@@ -995,12 +927,6 @@ func (pk *PublicKey) VerifySignature(signed hash.Hash, sig *Signature) (err erro
 		ed25519PublicKey := pk.PublicKey.(*ed25519.PublicKey)
 		if !ed25519.Verify(ed25519PublicKey, hashBytes, sig.EdSig) {
 			return errors.SignatureError("Ed25519 verification failure")
-		}
-		return nil
-	case PubKeyAlgoEd448:
-		ed448PublicKey := pk.PublicKey.(*ed448.PublicKey)
-		if !ed448.Verify(ed448PublicKey, hashBytes, sig.EdSig) {
-			return errors.SignatureError("ed448 verification failure")
 		}
 		return nil
 	case PubKeyAlgoMldsa65Ed25519:
@@ -1229,12 +1155,8 @@ func (pk *PublicKey) BitLength() (bitLength uint16, err error) {
 		bitLength = pk.p.BitLength()
 	case PubKeyAlgoX25519:
 		bitLength = x25519.KeySize * 8
-	case PubKeyAlgoX448:
-		bitLength = x448.KeySize * 8
 	case PubKeyAlgoEd25519:
 		bitLength = ed25519.PublicKeySize * 8
-	case PubKeyAlgoEd448:
-		bitLength = ed448.PublicKeySize * 8
 	case PubKeyAlgoMlkem768X25519:
 		publicKey := pk.PublicKey.(*mlkem_ecdh.PublicKey)
 		bitLength = uint16(publicKey.Mlkem.PublicKeySize() * 8)
@@ -1259,8 +1181,6 @@ func (pk *PublicKey) Curve() (curve Curve, err error) {
 		curve = Curve(curveInfo.GenName)
 	case PubKeyAlgoEd25519, PubKeyAlgoX25519:
 		curve = Curve25519
-	case PubKeyAlgoEd448, PubKeyAlgoX448:
-		curve = Curve448
 	default:
 		err = errors.InvalidArgumentError("public key does not operate with an elliptic curve")
 	}

@@ -16,7 +16,6 @@ import (
 	"github.com/thelemail/go-crypto/openpgp/ecdh"
 	"github.com/thelemail/go-crypto/openpgp/ecdsa"
 	"github.com/thelemail/go-crypto/openpgp/ed25519"
-	"github.com/thelemail/go-crypto/openpgp/ed448"
 	"github.com/thelemail/go-crypto/openpgp/eddsa"
 	"github.com/thelemail/go-crypto/openpgp/errors"
 	"github.com/thelemail/go-crypto/openpgp/internal/algorithm"
@@ -25,7 +24,6 @@ import (
 	"github.com/thelemail/go-crypto/openpgp/mlkem_ecdh"
 	"github.com/thelemail/go-crypto/openpgp/packet"
 	"github.com/thelemail/go-crypto/openpgp/x25519"
-	"github.com/thelemail/go-crypto/openpgp/x448"
 )
 
 // NewEntity returns an Entity that contains a fresh RSA/RSA keypair with a
@@ -315,12 +313,6 @@ func newSigner(config *packet.Config) (signer interface{}, err error) {
 			return nil, err
 		}
 		return priv, nil
-	case packet.PubKeyAlgoEd448:
-		priv, err := ed448.GenerateKey(config.Random())
-		if err != nil {
-			return nil, err
-		}
-		return priv, nil
 	case packet.PubKeyAlgoMldsa65Ed25519:
 		if !config.V6() {
 			return nil, goerrors.New("openpgp: cannot create a non-v6 mldsa_eddsa key")
@@ -360,11 +352,10 @@ func newDecrypter(config *packet.Config) (decrypter interface{}, err error) {
 		fallthrough // When passing EdDSA or ECDSA, we generate an ECDH subkey
 	case packet.PubKeyAlgoECDH:
 		if config.V6() &&
-			(config.CurveName() == packet.Curve25519 ||
-				config.CurveName() == packet.Curve448) {
+			(config.CurveName() == packet.Curve25519) {
 			// Implementations MUST NOT accept or generate v6 key material
 			// using the deprecated OIDs.
-			return nil, errors.InvalidArgumentError("ECDH with Curve25519/448 legacy cannot be used for v6 keys")
+			return nil, errors.InvalidArgumentError("ECDH with Curve25519 legacy cannot be used for v6 keys")
 		}
 		var kdf = ecdh.KDF{
 			Hash:   algorithm.SHA512,
@@ -377,8 +368,6 @@ func newDecrypter(config *packet.Config) (decrypter interface{}, err error) {
 		return ecdh.GenerateKey(config.Random(), curve, kdf)
 	case packet.PubKeyAlgoEd25519, packet.PubKeyAlgoX25519: // When passing Ed25519, we generate an x25519 subkey
 		return x25519.GenerateKey(config.Random())
-	case packet.PubKeyAlgoEd448, packet.PubKeyAlgoX448: // When passing Ed448, we generate an x448 subkey
-		return x448.GenerateKey(config.Random())
 	case packet.PubKeyAlgoMldsa65Ed25519:
 		if pubKeyAlgo, err = packet.GetMatchingMlkem(config.PublicKeyAlgorithm()); err != nil {
 			return nil, err

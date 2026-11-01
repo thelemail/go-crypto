@@ -17,7 +17,6 @@ import (
 	"crypto/rsa"
 
 	"github.com/thelemail/go-crypto/openpgp/x25519"
-	"github.com/thelemail/go-crypto/openpgp/x448"
 )
 
 func bigFromBase10(s string) *big.Int {
@@ -265,13 +264,7 @@ func TestEncryptingEncryptedKeyXAlgorithms(t *testing.T) {
 		x25519WrappedKey.UpgradeToV6()
 		return x25519WrappedKey, PubKeyAlgoX25519
 	}
-	x448Gen := func() (*PrivateKey, PublicKeyAlgorithm) {
-		x448Key, _ := x448.GenerateKey(config.Random())
-		x448WrappedKey := NewX448PrivateKey(time.Now(), x448Key)
-		x448WrappedKey.UpgradeToV6()
-		return x448WrappedKey, PubKeyAlgoX448
-	}
-	testCaseFunc := []func() (*PrivateKey, PublicKeyAlgorithm){x25519Gen, x448Gen}
+	testCaseFunc := []func() (*PrivateKey, PublicKeyAlgorithm){x25519Gen}
 
 	for _, genFunc := range testCaseFunc {
 		wrappedKey, pubType := genFunc()

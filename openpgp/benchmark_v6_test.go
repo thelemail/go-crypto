@@ -32,9 +32,6 @@ var benchmarkTestSet = map[string]*packet.Config{
 	"Ed25519_X25519": {
 		Algorithm: packet.PubKeyAlgoEd25519,
 	},
-	"Ed448_X448": {
-		Algorithm: packet.PubKeyAlgoEd448,
-	},
 	"P256": {
 		Algorithm: packet.PubKeyAlgoECDSA,
 		Curve:     packet.CurveNistP256,

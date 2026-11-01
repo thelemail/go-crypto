@@ -513,10 +513,15 @@ const (
 	// https://www.ietf.org/archive/id/draft-koch-eddsa-for-openpgp-04.txt
 	PubKeyAlgoEdDSA PublicKeyAlgorithm = 22
 	// https://datatracker.ietf.org/doc/html/draft-ietf-openpgp-crypto-refresh
-	PubKeyAlgoX25519  PublicKeyAlgorithm = 25
-	PubKeyAlgoX448    PublicKeyAlgorithm = 26
+	PubKeyAlgoX25519 PublicKeyAlgorithm = 25
+
+	// Recognized but unsupported UnsupportedError
+	PubKeyAlgoX448 PublicKeyAlgorithm = 26
+
 	PubKeyAlgoEd25519 PublicKeyAlgorithm = 27
-	PubKeyAlgoEd448   PublicKeyAlgorithm = 28
+
+	// Recognized but unsupported UnsupportedError
+	PubKeyAlgoEd448 PublicKeyAlgorithm = 28
 
 	// Deprecated in RFC 4880, Section 13.5. Use key flags instead.
 	PubKeyAlgoRSAEncryptOnly PublicKeyAlgorithm = 2
@@ -544,7 +549,7 @@ const (
 // key of the given type.
 func (pka PublicKeyAlgorithm) CanEncrypt() bool {
 	switch pka {
-	case PubKeyAlgoRSA, PubKeyAlgoRSAEncryptOnly, PubKeyAlgoElGamal, PubKeyAlgoECDH, PubKeyAlgoX25519, PubKeyAlgoX448,
+	case PubKeyAlgoRSA, PubKeyAlgoRSAEncryptOnly, PubKeyAlgoElGamal, PubKeyAlgoECDH, PubKeyAlgoX25519,
 		PubKeyAlgoMlkem768X25519:
 		return true
 	}
@@ -556,8 +561,7 @@ func (pka PublicKeyAlgorithm) CanEncrypt() bool {
 func (pka PublicKeyAlgorithm) CanSign() bool {
 	switch pka {
 	case PubKeyAlgoRSA, PubKeyAlgoRSASignOnly, PubKeyAlgoDSA, PubKeyAlgoECDSA, PubKeyAlgoEdDSA,
-		PubKeyAlgoEd25519, PubKeyAlgoEd448,
-		PubKeyAlgoMldsa65Ed25519:
+		PubKeyAlgoEd25519, PubKeyAlgoMldsa65Ed25519:
 		return true
 	}
 	return false

@@ -1598,7 +1598,6 @@ func TestKeyValidateOnDecrypt(t *testing.T) {
 	t.Run("EdDSA", func(t *testing.T) {
 		eddsaHardcoded := map[string]string{
 			"Curve25519": curve25519PrivateKey,
-			"Curve448":   curve448PrivateKey,
 		}
 
 		for name, skData := range eddsaHardcoded {
@@ -1614,7 +1613,6 @@ func TestKeyValidateOnDecrypt(t *testing.T) {
 
 		eddsaCurves := map[string]packet.Curve{
 			"Curve25519": packet.Curve25519,
-			"Curve448":   packet.Curve448,
 		}
 
 		for name, curveType := range eddsaCurves {
