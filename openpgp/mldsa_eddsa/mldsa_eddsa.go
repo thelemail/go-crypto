@@ -8,7 +8,6 @@ import (
 
 	"github.com/cloudflare/circl/sign"
 	"github.com/cloudflare/circl/sign/mldsa/mldsa65"
-	"github.com/cloudflare/circl/sign/mldsa/mldsa87"
 	"github.com/thelemail/go-crypto/openpgp/errors"
 	"github.com/thelemail/go-crypto/openpgp/internal/ecc"
 )
@@ -85,9 +84,6 @@ func Sign(priv *PrivateKey, message []byte) (mldsaSig, ecSig []byte, err error) 
 	case *mldsa65.PrivateKey:
 		mldsaSig = make([]byte, mldsa65.SignatureSize)
 		err = mldsa65.SignTo(key, message, nil, true, mldsaSig)
-	case *mldsa87.PrivateKey:
-		mldsaSig = make([]byte, mldsa87.SignatureSize)
-		err = mldsa87.SignTo(key, message, nil, true, mldsaSig)
 	default:
 		err = goerrors.New("mldsa_eddsa: unsupported ML-DSA private key type")
 	}

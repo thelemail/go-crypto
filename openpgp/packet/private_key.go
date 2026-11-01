@@ -908,21 +908,11 @@ func (pk *PrivateKey) parsePrivateKey(data []byte) (err error) {
 			return goerrors.New("openpgp: ML-KEM-768+X25519 may only be used with v4 or v6+")
 		}
 		return pk.parseMlkemEcdhPrivateKey(data, 32, mlkem_ecdh.MlKemSeedLen)
-	case PubKeyAlgoMlkem1024X448:
-		if pk.Version < 6 {
-			return goerrors.New("openpgp: ML-KEM-1024+X448 may only be used with v6+")
-		}
-		return pk.parseMlkemEcdhPrivateKey(data, 56, mlkem_ecdh.MlKemSeedLen)
 	case PubKeyAlgoMldsa65Ed25519:
 		if pk.Version < 6 {
 			return goerrors.New("openpgp: ML-DSA-65+Ed25519 may only be used with v6+")
 		}
 		return pk.parseMldsaEddsaPrivateKey(data, 32, mldsa_eddsa.MlDsaSeedLen)
-	case PubKeyAlgoMldsa87Ed448:
-		if pk.Version < 6 {
-			return goerrors.New("openpgp: ML-DSA-87+Ed448 may only be used with v6+")
-		}
-		return pk.parseMldsaEddsaPrivateKey(data, 57, mldsa_eddsa.MlDsaSeedLen)
 	default:
 		err = errors.StructuralError("unknown private key type")
 		return
@@ -1198,7 +1188,7 @@ func (pk *PrivateKey) parseMldsaEddsaPrivateKey(data []byte, ecLen, seedLen int)
 	priv := new(mldsa_eddsa.PrivateKey)
 	priv.PublicKey = *pub
 
-	if len(data) != ecLen + seedLen {
+	if len(data) != ecLen+seedLen {
 		return errors.StructuralError("wrong ML-DSA+EdDSA key size")
 	}
 
@@ -1227,7 +1217,7 @@ func (pk *PrivateKey) parseMlkemEcdhPrivateKey(data []byte, ecLen, seedLen int) 
 	priv := new(mlkem_ecdh.PrivateKey)
 	priv.PublicKey = *pub
 
-	if len(data) != ecLen + seedLen {
+	if len(data) != ecLen+seedLen {
 		return errors.StructuralError("wrong ML-KEM+ECDH key size")
 	}
 

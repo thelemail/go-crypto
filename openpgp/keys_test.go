@@ -1909,7 +1909,6 @@ func testAddMlkemSubkey(t *testing.T, entity *Entity, v6Keys bool) {
 
 	asymmAlgos := map[string]packet.PublicKeyAlgorithm{
 		"Mlkem768_X25519": packet.PubKeyAlgoMlkem768X25519,
-		"Mlkem1024_X448":  packet.PubKeyAlgoMlkem1024X448,
 	}
 
 	for name, algo := range asymmAlgos {

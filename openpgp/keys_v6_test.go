@@ -212,7 +212,6 @@ func TestGeneratePqKey(t *testing.T) {
 
 	asymmAlgos := map[string]packet.PublicKeyAlgorithm{
 		"ML-DSA65_Ed25519": packet.PubKeyAlgoMldsa65Ed25519,
-		"ML-DSA87_Ed448":   packet.PubKeyAlgoMldsa87Ed448,
 	}
 
 	for name, algo := range asymmAlgos {

@@ -17,7 +17,6 @@ import (
 	"time"
 
 	"github.com/cloudflare/circl/sign/mldsa/mldsa65"
-	"github.com/cloudflare/circl/sign/mldsa/mldsa87"
 	"github.com/thelemail/go-crypto/openpgp/ecdsa"
 	"github.com/thelemail/go-crypto/openpgp/ed25519"
 	"github.com/thelemail/go-crypto/openpgp/ed448"
@@ -207,7 +206,7 @@ func (sig *Signature) parse(r io.Reader) (err error) {
 	case PubKeyAlgoRSA, PubKeyAlgoRSASignOnly, PubKeyAlgoDSA,
 		PubKeyAlgoECDSA, PubKeyAlgoEdDSA,
 		PubKeyAlgoEd25519, PubKeyAlgoEd448,
-		PubKeyAlgoMldsa65Ed25519, PubKeyAlgoMldsa87Ed448:
+		PubKeyAlgoMldsa65Ed25519:
 	default:
 		err = errors.UnsupportedError("public key algorithm " + strconv.Itoa(int(sig.PubKeyAlgo)))
 		return
@@ -345,10 +344,6 @@ func (sig *Signature) parse(r io.Reader) (err error) {
 		}
 	case PubKeyAlgoMldsa65Ed25519:
 		if err = sig.parseMldsaEddsaSignature(r, 64, mldsa65.SignatureSize); err != nil {
-			return
-		}
-	case PubKeyAlgoMldsa87Ed448:
-		if err = sig.parseMldsaEddsaSignature(r, 114, mldsa87.SignatureSize); err != nil {
 			return
 		}
 	default:
@@ -1035,7 +1030,7 @@ func (sig *Signature) Sign(h hash.Hash, priv *PrivateKey, config *Config) (err e
 		if err == nil {
 			sig.EdSig = signature
 		}
-	case PubKeyAlgoMldsa65Ed25519, PubKeyAlgoMldsa87Ed448:
+	case PubKeyAlgoMldsa65Ed25519:
 		if sig.Version != 6 {
 			return errors.StructuralError("cannot use MldsaEdDsa on a non-v6 signature")
 		}
@@ -1184,7 +1179,7 @@ func (sig *Signature) Serialize(w io.Writer) (err error) {
 		sigLength = ed25519.SignatureSize
 	case PubKeyAlgoEd448:
 		sigLength = ed448.SignatureSize
-	case PubKeyAlgoMldsa65Ed25519, PubKeyAlgoMldsa87Ed448:
+	case PubKeyAlgoMldsa65Ed25519:
 		sigLength = len(sig.EdSig)
 		sigLength += len(sig.MldsaSig)
 	default:
@@ -1293,7 +1288,7 @@ func (sig *Signature) serializeBody(w io.Writer) (err error) {
 		err = ed25519.WriteSignature(w, sig.EdSig)
 	case PubKeyAlgoEd448:
 		err = ed448.WriteSignature(w, sig.EdSig)
-	case PubKeyAlgoMldsa65Ed25519, PubKeyAlgoMldsa87Ed448:
+	case PubKeyAlgoMldsa65Ed25519:
 		if _, err = w.Write(sig.EdSig); err != nil {
 			return
 		}

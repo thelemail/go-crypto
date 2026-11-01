@@ -491,16 +491,6 @@ var testEncryptionTests = map[string]struct {
 		true,
 		true,
 	},
-	"v6_ML-DSA-87+Ed448_ML-KEM-1024+X448": {
-		v6Mldsa87Ed448Mlkem1024X448PrivateHex,
-		false,
-		true,
-	},
-	"v6_ML-DSA-87+Ed448_ML-KEM-1024+X448_signed": {
-		v6Mldsa87Ed448Mlkem1024X448PrivateHex,
-		true,
-		true,
-	},
 }
 
 func TestEncryption(t *testing.T) {
@@ -738,7 +728,7 @@ ParsePackets:
 			// This packet contains the decryption key encrypted to a public key.
 			switch p.Algo {
 			case packet.PubKeyAlgoRSA, packet.PubKeyAlgoRSAEncryptOnly, packet.PubKeyAlgoElGamal, packet.PubKeyAlgoECDH,
-				packet.PubKeyAlgoMlkem768X25519, packet.PubKeyAlgoMlkem1024X448:
+				packet.PubKeyAlgoMlkem768X25519:
 				break
 			default:
 				continue

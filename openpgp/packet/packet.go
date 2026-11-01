@@ -524,7 +524,9 @@ const (
 
 	// PQC DSA algorithms
 	PubKeyAlgoMldsa65Ed25519 = 30
-	PubKeyAlgoMldsa87Ed448   = 31
+
+	// Recognized but unsupported UnsupportedError
+	PubKeyAlgoMldsa87Ed448 = 31
 
 	// Recognized but unsupported UnsupportedError
 	PubKeyAlgoSlhdsaShake128s = 32
@@ -533,7 +535,9 @@ const (
 
 	// PQC KEM algorithms
 	PubKeyAlgoMlkem768X25519 = 35
-	PubKeyAlgoMlkem1024X448  = 36
+
+	// Recognized but unsupported UnsupportedError
+	PubKeyAlgoMlkem1024X448 = 36
 )
 
 // CanEncrypt returns true if it's possible to encrypt a message to a public
@@ -541,7 +545,7 @@ const (
 func (pka PublicKeyAlgorithm) CanEncrypt() bool {
 	switch pka {
 	case PubKeyAlgoRSA, PubKeyAlgoRSAEncryptOnly, PubKeyAlgoElGamal, PubKeyAlgoECDH, PubKeyAlgoX25519, PubKeyAlgoX448,
-		PubKeyAlgoMlkem768X25519, PubKeyAlgoMlkem1024X448:
+		PubKeyAlgoMlkem768X25519:
 		return true
 	}
 	return false
@@ -553,7 +557,7 @@ func (pka PublicKeyAlgorithm) CanSign() bool {
 	switch pka {
 	case PubKeyAlgoRSA, PubKeyAlgoRSASignOnly, PubKeyAlgoDSA, PubKeyAlgoECDSA, PubKeyAlgoEdDSA,
 		PubKeyAlgoEd25519, PubKeyAlgoEd448,
-		PubKeyAlgoMldsa65Ed25519, PubKeyAlgoMldsa87Ed448:
+		PubKeyAlgoMldsa65Ed25519:
 		return true
 	}
 	return false

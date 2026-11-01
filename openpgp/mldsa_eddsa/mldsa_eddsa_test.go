@@ -13,7 +13,6 @@ import (
 func TestSignVerify(t *testing.T) {
 	asymmAlgos := map[string]packet.PublicKeyAlgorithm{
 		"ML-DSA3_Ed25519": packet.PubKeyAlgoMldsa65Ed25519,
-		"ML-DSA5_Ed448":   packet.PubKeyAlgoMldsa87Ed448,
 	}
 
 	for asymmName, asymmAlgo := range asymmAlgos {
