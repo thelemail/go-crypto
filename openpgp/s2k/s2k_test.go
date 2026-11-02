@@ -327,3 +327,26 @@ func TestValidateArgon2Params(t *testing.T) {
 		}
 	}
 }
+
+func TestCacheStoresDerivedKey(t *testing.T) {
+	params, err := Generate(rand.Reader, &Config{S2KMode: IteratedSaltedS2K})
+	if err != nil {
+		t.Fatal(err)
+	}
+	cache := Cache{}
+	key, err := cache.GetOrComputeDerivedKey([]byte("passphrase"), params, 32)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cached, ok := cache[*params]
+	if !ok || !bytes.Equal(cached, key) {
+		t.Fatalf("derived key not cached: got %x, want %x", cached, key)
+	}
+	again, err := cache.GetOrComputeDerivedKey([]byte("passphrase"), params, 32)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(again, key) {
+		t.Fatalf("cached key mismatch: got %x, want %x", again, key)
+	}
+}

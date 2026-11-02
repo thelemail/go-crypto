@@ -19,7 +19,7 @@ func (c *Cache) GetOrComputeDerivedKey(passphrase []byte, params *Params, expect
 			return nil, err
 		}
 		s2k(derivedKey, passphrase)
-		(*c)[*params] = key
+		(*c)[*params] = derivedKey
 		return derivedKey, nil
 	}
 	return key, nil
