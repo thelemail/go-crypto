@@ -6,6 +6,7 @@ package packet
 
 import (
 	"crypto/dsa"
+	"crypto/mlkem"
 	"crypto/rsa"
 	"crypto/sha1"
 	"crypto/sha256"
@@ -19,8 +20,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/cloudflare/circl/kem"
-	"github.com/cloudflare/circl/kem/mlkem/mlkem768"
 	"github.com/cloudflare/circl/sign"
 	"github.com/cloudflare/circl/sign/mldsa/mldsa65"
 	"github.com/thelemail/go-crypto/openpgp/ecdh"
@@ -275,7 +274,7 @@ func (pk *PublicKey) parse(r io.Reader) (err error) {
 		if !(pk.Version == 4 || pk.Version >= 6) {
 			return goerrors.New("openpgp: ML-KEM-768+X25519 may only be used with v4 or v6+")
 		}
-		err = pk.parseMlkemEcdh(r, 32, mlkem768.PublicKeySize)
+		err = pk.parseMlkemEcdh(r, 32, mlkem.EncapsulationKeySize768)
 	case PubKeyAlgoMldsa65Ed25519:
 		if pk.Version < 6 {
 			return goerrors.New("openpgp: ML-DSA-65+Ed25519 may only be used with v6+")
@@ -595,11 +594,7 @@ func (pk *PublicKey) parseMlkemEcdh(r io.Reader, ecLen, kLen int) (err error) {
 		return err
 	}
 
-	if pub.Mlkem, err = GetMlkemFromAlgID(pk.PubKeyAlgo); err != nil {
-		return err
-	}
-
-	if pub.PublicMlkem, err = pub.Mlkem.UnmarshalBinaryPublicKey(mlkemKey); err != nil {
+	if pub.PublicMlkem, err = mlkem.NewEncapsulationKey768(mlkemKey); err != nil {
 		return err
 	}
 
@@ -727,7 +722,7 @@ func (pk *PublicKey) algorithmSpecificByteCount() uint32 {
 		length += ed25519.PublicKeySize
 	case PubKeyAlgoMlkem768X25519:
 		length += x25519.KeySize
-		length += mlkem768.PublicKeySize
+		length += mlkem.EncapsulationKeySize768
 	case PubKeyAlgoMldsa65Ed25519:
 		length += ed25519.PublicKeySize
 		length += mldsa65.PublicKeySize
@@ -820,12 +815,8 @@ func (pk *PublicKey) serializeWithoutHeaders(w io.Writer) (err error) {
 		if _, err = w.Write(publicKey.PublicPoint); err != nil {
 			return
 		}
-		var mlkemBin []byte
-		mlkemBin, err = publicKey.PublicMlkem.MarshalBinary()
-		if err != nil {
-			return
-		}
-		_, err = w.Write(mlkemBin)
+
+		_, err = w.Write(publicKey.PublicMlkem.Bytes())
 		return
 	case PubKeyAlgoMldsa65Ed25519:
 		publicKey := pk.PublicKey.(*mldsa_eddsa.PublicKey)
@@ -1144,8 +1135,7 @@ func (pk *PublicKey) BitLength() (bitLength uint16, err error) {
 	case PubKeyAlgoEd25519:
 		bitLength = ed25519.PublicKeySize * 8
 	case PubKeyAlgoMlkem768X25519:
-		publicKey := pk.PublicKey.(*mlkem_ecdh.PublicKey)
-		bitLength = uint16(publicKey.Mlkem.PublicKeySize() * 8)
+		bitLength = uint16(mlkem.EncapsulationKeySize768 * 8)
 	case PubKeyAlgoMldsa65Ed25519:
 		publicKey := pk.PublicKey.(*mldsa_eddsa.PublicKey)
 		bitLength = uint16(publicKey.Mldsa.PublicKeySize() * 8)
@@ -1202,16 +1192,6 @@ func GetMatchingMlkem(algId PublicKeyAlgorithm) (PublicKeyAlgorithm, error) {
 		return PubKeyAlgoMlkem768X25519, nil
 	default:
 		return 0, goerrors.New("packet: unsupported pq public key algorithm")
-	}
-}
-
-// GetMlkemFromAlgID returns the ML-KEM instance from the matching KEM
-func GetMlkemFromAlgID(algId PublicKeyAlgorithm) (kem.Scheme, error) {
-	switch algId {
-	case PubKeyAlgoMlkem768X25519:
-		return mlkem768.Scheme(), nil
-	default:
-		return nil, goerrors.New("packet: unsupported ML-KEM public key algorithm")
 	}
 }
 

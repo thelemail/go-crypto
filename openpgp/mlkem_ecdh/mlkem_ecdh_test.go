@@ -36,18 +36,12 @@ func TestEncryptDecrypt(t *testing.T) {
 }
 
 func testvalidateAlgo(t *testing.T, algId packet.PublicKeyAlgorithm) {
-	var err error
 	key := testGenerateKeyAlgo(t, algId)
 	if err := mlkem_ecdh.Validate(key); err != nil {
 		t.Fatalf("valid key marked as invalid: %s", err)
 	}
 
-	bin, _ := key.PublicMlkem.MarshalBinary()
-	bin[5] ^= 1
-	key.PublicMlkem, err = key.Mlkem.UnmarshalBinaryPublicKey(bin)
-	if err != nil {
-		t.Fatal("unable to corrupt key")
-	}
+	key.PublicMlkem = testGenerateKeyAlgo(t, algId).PublicMlkem
 
 	if err := mlkem_ecdh.Validate(key); err == nil {
 		t.Fatalf("failed to detect invalid key")
@@ -71,12 +65,7 @@ func testGenerateKeyAlgo(t *testing.T, algId packet.PublicKeyAlgorithm) *mlkem_e
 		t.Errorf("error getting curve: %s", err)
 	}
 
-	kyberObj, err := packet.GetMlkemFromAlgID(algId)
-	if err != nil {
-		t.Errorf("error getting kyber: %s", err)
-	}
-
-	priv, err := mlkem_ecdh.GenerateKey(rand.Reader, uint8(algId), curveObj, kyberObj)
+	priv, err := mlkem_ecdh.GenerateKey(rand.Reader, uint8(algId), curveObj)
 	if err != nil {
 		t.Fatal(err)
 	}

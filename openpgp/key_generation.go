@@ -378,12 +378,8 @@ func newDecrypter(config *packet.Config) (decrypter interface{}, err error) {
 		if err != nil {
 			return nil, err
 		}
-		k, err := packet.GetMlkemFromAlgID(pubKeyAlgo)
-		if err != nil {
-			return nil, err
-		}
 
-		return mlkem_ecdh.GenerateKey(config.Random(), uint8(pubKeyAlgo), c, k)
+		return mlkem_ecdh.GenerateKey(config.Random(), uint8(pubKeyAlgo), c)
 	default:
 		return nil, errors.InvalidArgumentError("unsupported public key algorithm")
 	}

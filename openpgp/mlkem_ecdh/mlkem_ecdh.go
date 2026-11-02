@@ -3,12 +3,13 @@
 package mlkem_ecdh
 
 import (
+	"bytes"
+	"crypto/mlkem"
 	"crypto/sha3"
 	goerrors "errors"
 	"fmt"
 	"io"
 
-	"github.com/cloudflare/circl/kem"
 	"github.com/thelemail/go-crypto/openpgp/aes/keywrap"
 	"github.com/thelemail/go-crypto/openpgp/errors"
 	"github.com/thelemail/go-crypto/openpgp/internal/ecc"
@@ -16,34 +17,33 @@ import (
 
 const (
 	maxSessionKeyLength = 64
-	MlKemSeedLen        = 64
+	MlKemSeedLen        = mlkem.SeedSize
 	domSep              = "OpenPGPCompositeKDFv1"
 )
 
 type PublicKey struct {
 	AlgId       uint8
 	Curve       ecc.ECDHCurve
-	Mlkem       kem.Scheme
-	PublicMlkem kem.PublicKey
+	PublicMlkem *mlkem.EncapsulationKey768
 	PublicPoint []byte
 }
 
 type PrivateKey struct {
 	PublicKey
 	SecretEc        []byte
-	SecretMlkem     kem.PrivateKey
+	SecretMlkem     *mlkem.DecapsulationKey768
 	SecretMlkemSeed []byte
 }
 
 // GenerateKey implements ML-KEM + ECC key generation as specified in
 // https://www.rfc-editor.org/rfc/rfc9980.html#name-key-generation-procedure
-func GenerateKey(rand io.Reader, algId uint8, c ecc.ECDHCurve, k kem.Scheme) (priv *PrivateKey, err error) {
-	priv = new(PrivateKey)
+func GenerateKey(rand io.Reader, algId uint8, c ecc.ECDHCurve) (*PrivateKey, error) {
+	priv := new(PrivateKey)
 
 	priv.PublicKey.AlgId = algId
 	priv.PublicKey.Curve = c
-	priv.PublicKey.Mlkem = k
 
+	var err error
 	priv.PublicKey.PublicPoint, priv.SecretEc, err = c.GenerateECDH(rand)
 	if err != nil {
 		return nil, err
@@ -61,16 +61,24 @@ func GenerateKey(rand io.Reader, algId uint8, c ecc.ECDHCurve, k kem.Scheme) (pr
 }
 
 // DeriveMlKemKeys derives the ML-KEM keys from the provided seed and stores them inside priv.
-func (priv *PrivateKey) DeriveMlKemKeys(seed []byte, overridePublicKey bool) (err error) {
+func (priv *PrivateKey) DeriveMlKemKeys(seed []byte, overridePublicKey bool) error {
 	if len(seed) != MlKemSeedLen {
 		return goerrors.New("mlkem_ecdh: ml-kem secret seed has the wrong length")
 	}
-	priv.SecretMlkemSeed = seed
-	publicKey, privateKey := priv.PublicKey.Mlkem.DeriveKeyPair(priv.SecretMlkemSeed)
-	if overridePublicKey {
-		priv.PublicKey.PublicMlkem = publicKey
+
+	privateKey, err := mlkem.NewDecapsulationKey768(seed)
+	if err != nil {
+		return err
 	}
+
+	priv.SecretMlkemSeed = seed
+
+	if overridePublicKey {
+		priv.PublicKey.PublicMlkem = privateKey.EncapsulationKey()
+	}
+
 	priv.SecretMlkem = privateKey
+
 	return nil
 }
 
@@ -92,15 +100,7 @@ func Encrypt(rand io.Reader, pub *PublicKey, msg []byte) (kEphemeral, ecEphemera
 	}
 
 	// ML-KEM shared secret derivation
-	kyberSeed, err := generateRandomSeed(rand, pub.Mlkem.EncapsulationSeedSize())
-	if err != nil {
-		return nil, nil, nil, err
-	}
-
-	kEphemeral, kSS, err := pub.Mlkem.EncapsulateDeterministically(pub.PublicMlkem, kyberSeed)
-	if err != nil {
-		return nil, nil, nil, err
-	}
+	kSS, kEphemeral := pub.PublicMlkem.Encapsulate()
 
 	keyEncryptionKey, err := buildKey(pub, ecSS, ecEphemeral, pub.PublicPoint, kSS)
 	if err != nil {
@@ -124,7 +124,7 @@ func Decrypt(priv *PrivateKey, kEphemeral, ecEphemeral, ciphertext []byte) (msg 
 	}
 
 	// ML-KEM shared secret derivation
-	kSS, err := priv.PublicKey.Mlkem.Decapsulate(priv.SecretMlkem, kEphemeral)
+	kSS, err := priv.SecretMlkem.Decapsulate(kEphemeral)
 	if err != nil {
 		return nil, err
 	}
@@ -168,7 +168,7 @@ func Validate(priv *PrivateKey) (err error) {
 		return err
 	}
 
-	if !priv.PublicKey.PublicMlkem.Equal(priv.SecretMlkem.Public()) {
+	if !bytes.Equal(priv.PublicKey.PublicMlkem.Bytes(), priv.SecretMlkem.EncapsulationKey().Bytes()) {
 		return errors.KeyInvalidError("mlkem_ecdh: invalid public key")
 	}
 

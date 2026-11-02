@@ -3,6 +3,7 @@ package openpgp
 import (
 	"bytes"
 	"crypto"
+	"crypto/mlkem"
 	"crypto/rand"
 	"strings"
 	"testing"
@@ -299,11 +300,11 @@ func testMlkemSubkey(t *testing.T, subkey Subkey, randomPassword []byte) {
 
 	// Corrupt public ML-KEM in primary key
 	if pk, ok := subkey.PublicKey.PublicKey.(*mlkem_ecdh.PublicKey); ok {
-		bin, _ := pk.PublicMlkem.MarshalBinary()
-		bin[5] ^= 1
-		if pk.PublicMlkem, err = pk.Mlkem.UnmarshalBinaryPublicKey(bin); err != nil {
-			t.Fatal("unable to corrupt key")
+		otherKey, err := mlkem.GenerateKey768()
+		if err != nil {
+			t.Fatal(err)
 		}
+		pk.PublicMlkem = otherKey.EncapsulationKey()
 	} else {
 		t.Fatal("Invalid subkey")
 	}

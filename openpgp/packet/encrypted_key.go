@@ -7,6 +7,7 @@ package packet
 import (
 	"bytes"
 	"crypto"
+	"crypto/mlkem"
 	"crypto/rsa"
 	"encoding/binary"
 	"encoding/hex"
@@ -130,7 +131,7 @@ func (e *EncryptedKey) parse(r io.Reader) (err error) {
 			return
 		}
 	case PubKeyAlgoMlkem768X25519:
-		if e.ephemeralPublicEcc, e.ephemeralPublicMlKem, e.encryptedSession, cipherFunction, err = mlkem_ecdh.DecodeFields(r, 32, 1088, e.Version == 6); err != nil {
+		if e.ephemeralPublicEcc, e.ephemeralPublicMlKem, e.encryptedSession, cipherFunction, err = mlkem_ecdh.DecodeFields(r, 32, mlkem.CiphertextSize768, e.Version == 6); err != nil {
 			return err
 		}
 	}
