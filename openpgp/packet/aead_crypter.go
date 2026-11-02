@@ -15,27 +15,9 @@ type aeadCrypter struct {
 	aead           cipher.AEAD
 	chunkSize      int
 	nonce          []byte
-	associatedData []byte     // Chunk-independent associated data
-	chunkIndex     []byte     // Chunk counter
-	packetTag      packetType // SEIP packet (v2)
-	bytesProcessed int        // Amount of plaintext bytes encrypted/decrypted
-}
-
-// computeNonce takes the incremental index and computes an eXclusive OR with
-// the least significant 8 bytes of the receivers' initial nonce (see sec.
-// 5.16.1 and 5.16.2). It returns the resulting nonce.
-func (wo *aeadCrypter) computeNextNonce() (nonce []byte) {
-	if wo.packetTag == packetTypeSymmetricallyEncryptedIntegrityProtected {
-		return wo.nonce
-	}
-
-	nonce = make([]byte, len(wo.nonce))
-	copy(nonce, wo.nonce)
-	offset := len(wo.nonce) - 8
-	for i := 0; i < 8; i++ {
-		nonce[i+offset] ^= wo.chunkIndex[i]
-	}
-	return
+	associatedData []byte // Chunk-independent associated data
+	chunkIndex     []byte // Chunk counter
+	bytesProcessed int    // Amount of plaintext bytes encrypted/decrypted
 }
 
 // incrementIndex performs an integer increment by 1 of the integer represented by the
@@ -118,7 +100,7 @@ func (ar *aeadDecrypter) Close() (err error) {
 func (ar *aeadDecrypter) openChunk(data []byte) ([]byte, error) {
 	adata := ar.associatedData
 
-	nonce := ar.computeNextNonce()
+	nonce := ar.nonce
 	plainChunk, err := ar.aead.Open(data[:0:len(data)], nonce, data, adata)
 	if err != nil {
 		return nil, errors.ErrAEADTagVerification
@@ -141,7 +123,7 @@ func (ar *aeadDecrypter) validateFinalTag(tag []byte) error {
 
 	// ... and total number of encrypted octets
 	adata = append(adata, amountBytes...)
-	nonce := ar.computeNextNonce()
+	nonce := ar.nonce
 	if _, err := ar.aead.Open(nil, nonce, tag, adata); err != nil {
 		return errors.ErrAEADTagVerification
 	}
@@ -206,7 +188,7 @@ func (aw *aeadEncrypter) Close() (err error) {
 	binary.BigEndian.PutUint64(amountBytes, uint64(aw.bytesProcessed))
 	adata = append(adata, amountBytes...)
 
-	nonce := aw.computeNextNonce()
+	nonce := aw.nonce
 	finalTag := aw.aead.Seal(nil, nonce, nil, adata)
 	_, err = aw.writer.Write(finalTag)
 	if err != nil {
@@ -225,7 +207,7 @@ func (aw *aeadEncrypter) sealChunk(data []byte) ([]byte, error) {
 	}
 	adata := aw.associatedData
 
-	nonce := aw.computeNextNonce()
+	nonce := aw.nonce
 	encrypted := aw.aead.Seal(data[:0], nonce, data, adata)
 	aw.bytesProcessed += len(data)
 	if err := aw.aeadCrypter.incrementIndex(); err != nil {
