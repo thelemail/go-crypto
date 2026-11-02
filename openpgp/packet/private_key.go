@@ -8,7 +8,6 @@ import (
 	"bytes"
 	"crypto"
 	"crypto/cipher"
-	"crypto/dsa"
 	"crypto/hkdf"
 	"crypto/rsa"
 	"crypto/sha1"
@@ -25,7 +24,6 @@ import (
 	"github.com/thelemail/go-crypto/openpgp/ecdsa"
 	"github.com/thelemail/go-crypto/openpgp/ed25519"
 	"github.com/thelemail/go-crypto/openpgp/eddsa"
-	"github.com/thelemail/go-crypto/openpgp/elgamal"
 	"github.com/thelemail/go-crypto/openpgp/errors"
 	"github.com/thelemail/go-crypto/openpgp/internal/encoding"
 	"github.com/thelemail/go-crypto/openpgp/mldsa_eddsa"
@@ -43,7 +41,7 @@ type PrivateKey struct {
 	cipher        CipherFunction
 	s2k           func(out, in []byte)
 	aead          AEADMode // only relevant if S2KAEAD is enabled
-	// An *{rsa|dsa|elgamal|ecdh|ecdsa|ed25519}.PrivateKey or
+	// An *{rsa|ecdh|ecdsa|ed25519}.PrivateKey or
 	// crypto.Signer/crypto.Decrypter (Decryptor RSA only).
 	PrivateKey interface{}
 	iv         []byte
@@ -73,20 +71,6 @@ const (
 func NewRSAPrivateKey(creationTime time.Time, priv *rsa.PrivateKey) *PrivateKey {
 	pk := new(PrivateKey)
 	pk.PublicKey = *NewRSAPublicKey(creationTime, &priv.PublicKey)
-	pk.PrivateKey = priv
-	return pk
-}
-
-func NewDSAPrivateKey(creationTime time.Time, priv *dsa.PrivateKey) *PrivateKey {
-	pk := new(PrivateKey)
-	pk.PublicKey = *NewDSAPublicKey(creationTime, &priv.PublicKey)
-	pk.PrivateKey = priv
-	return pk
-}
-
-func NewElGamalPrivateKey(creationTime time.Time, priv *elgamal.PrivateKey) *PrivateKey {
-	pk := new(PrivateKey)
-	pk.PublicKey = *NewElGamalPublicKey(creationTime, &priv.PublicKey)
 	pk.PrivateKey = priv
 	return pk
 }
@@ -158,14 +142,12 @@ func NewSignerPrivateKey(creationTime time.Time, signer interface{}) *PrivateKey
 	return pk
 }
 
-// NewDecrypterPrivateKey creates a PrivateKey from a *{rsa|elgamal|ecdh|x25519|mlkem_ecdh}.PrivateKey.
+// NewDecrypterPrivateKey creates a PrivateKey from a *{rsa|ecdh|x25519|mlkem_ecdh}.PrivateKey.
 func NewDecrypterPrivateKey(creationTime time.Time, decrypter interface{}) *PrivateKey {
 	pk := new(PrivateKey)
 	switch priv := decrypter.(type) {
 	case *rsa.PrivateKey:
 		pk.PublicKey = *NewRSAPublicKey(creationTime, &priv.PublicKey)
-	case *elgamal.PrivateKey:
-		pk.PublicKey = *NewElGamalPublicKey(creationTime, &priv.PublicKey)
 	case *ecdh.PrivateKey:
 		pk.PublicKey = *NewECDHPublicKey(creationTime, &priv.PublicKey)
 	case *x25519.PrivateKey:
@@ -437,16 +419,6 @@ func serializeRSAPrivateKey(w io.Writer, priv *rsa.PrivateKey) error {
 		return err
 	}
 	_, err := w.Write(new(encoding.MPI).SetBig(priv.Precomputed.Qinv).EncodedBytes())
-	return err
-}
-
-func serializeDSAPrivateKey(w io.Writer, priv *dsa.PrivateKey) error {
-	_, err := w.Write(new(encoding.MPI).SetBig(priv.X).EncodedBytes())
-	return err
-}
-
-func serializeElGamalPrivateKey(w io.Writer, priv *elgamal.PrivateKey) error {
-	_, err := w.Write(new(encoding.MPI).SetBig(priv.X).EncodedBytes())
 	return err
 }
 
@@ -785,10 +757,6 @@ func (pk *PrivateKey) serializePrivateKey(w io.Writer) (err error) {
 	switch priv := pk.PrivateKey.(type) {
 	case *rsa.PrivateKey:
 		err = serializeRSAPrivateKey(w, priv)
-	case *dsa.PrivateKey:
-		err = serializeDSAPrivateKey(w, priv)
-	case *elgamal.PrivateKey:
-		err = serializeElGamalPrivateKey(w, priv)
 	case *ecdsa.PrivateKey:
 		err = serializeECDSAPrivateKey(w, priv)
 	case *eddsa.PrivateKey:
@@ -813,10 +781,6 @@ func (pk *PrivateKey) parsePrivateKey(data []byte) (err error) {
 	switch pk.PublicKey.PubKeyAlgo {
 	case PubKeyAlgoRSA:
 		return pk.parseRSAPrivateKey(data)
-	case PubKeyAlgoDSA:
-		return pk.parseDSAPrivateKey(data)
-	case PubKeyAlgoElGamal:
-		return pk.parseElGamalPrivateKey(data)
 	case PubKeyAlgoECDSA:
 		return pk.parseECDSAPrivateKey(data)
 	case PubKeyAlgoECDH:
@@ -875,46 +839,6 @@ func (pk *PrivateKey) parseRSAPrivateKey(data []byte) (err error) {
 	}
 	rsaPriv.Precompute()
 	pk.PrivateKey = rsaPriv
-
-	return nil
-}
-
-func (pk *PrivateKey) parseDSAPrivateKey(data []byte) (err error) {
-	dsaPub := pk.PublicKey.PublicKey.(*dsa.PublicKey)
-	dsaPriv := new(dsa.PrivateKey)
-	dsaPriv.PublicKey = *dsaPub
-
-	buf := bytes.NewBuffer(data)
-	x := new(encoding.MPI)
-	if _, err := x.ReadFrom(buf); err != nil {
-		return err
-	}
-
-	dsaPriv.X = new(big.Int).SetBytes(x.Bytes())
-	if err := validateDSAParameters(dsaPriv); err != nil {
-		return err
-	}
-	pk.PrivateKey = dsaPriv
-
-	return nil
-}
-
-func (pk *PrivateKey) parseElGamalPrivateKey(data []byte) (err error) {
-	pub := pk.PublicKey.PublicKey.(*elgamal.PublicKey)
-	priv := new(elgamal.PrivateKey)
-	priv.PublicKey = *pub
-
-	buf := bytes.NewBuffer(data)
-	x := new(encoding.MPI)
-	if _, err := x.ReadFrom(buf); err != nil {
-		return err
-	}
-
-	priv.X = new(big.Int).SetBytes(x.Bytes())
-	if err := validateElGamalParameters(priv); err != nil {
-		return err
-	}
-	pk.PrivateKey = priv
 
 	return nil
 }
@@ -1120,75 +1044,6 @@ func (pk *PrivateKey) parseMlkemEcdhPrivateKey(data []byte, ecLen, seedLen int) 
 		return err
 	}
 	pk.PrivateKey = priv
-
-	return nil
-}
-
-func validateDSAParameters(priv *dsa.PrivateKey) error {
-	p := priv.P // group prime
-	q := priv.Q // subgroup order
-	g := priv.G // g has order q mod p
-	x := priv.X // secret
-	y := priv.Y // y == g**x mod p
-	one := big.NewInt(1)
-	// expect g, y >= 2 and g < p
-	if g.Cmp(one) <= 0 || y.Cmp(one) <= 0 || g.Cmp(p) > 0 {
-		return errors.KeyInvalidError("dsa: invalid group")
-	}
-	// expect p > q
-	if p.Cmp(q) <= 0 {
-		return errors.KeyInvalidError("dsa: invalid group prime")
-	}
-	// q should be large enough and divide p-1
-	pSub1 := new(big.Int).Sub(p, one)
-	if q.BitLen() < 150 || new(big.Int).Mod(pSub1, q).Cmp(big.NewInt(0)) != 0 {
-		return errors.KeyInvalidError("dsa: invalid order")
-	}
-	// confirm that g has order q mod p
-	if !q.ProbablyPrime(32) || new(big.Int).Exp(g, q, p).Cmp(one) != 0 {
-		return errors.KeyInvalidError("dsa: invalid order")
-	}
-	// check y
-	if new(big.Int).Exp(g, x, p).Cmp(y) != 0 {
-		return errors.KeyInvalidError("dsa: mismatching values")
-	}
-
-	return nil
-}
-
-func validateElGamalParameters(priv *elgamal.PrivateKey) error {
-	p := priv.P // group prime
-	g := priv.G // g has order p-1 mod p
-	x := priv.X // secret
-	y := priv.Y // y == g**x mod p
-	one := big.NewInt(1)
-	// Expect g, y >= 2 and g < p
-	if g.Cmp(one) <= 0 || y.Cmp(one) <= 0 || g.Cmp(p) > 0 {
-		return errors.KeyInvalidError("elgamal: invalid group")
-	}
-	if p.BitLen() < 1024 {
-		return errors.KeyInvalidError("elgamal: group order too small")
-	}
-	pSub1 := new(big.Int).Sub(p, one)
-	if new(big.Int).Exp(g, pSub1, p).Cmp(one) != 0 {
-		return errors.KeyInvalidError("elgamal: invalid group")
-	}
-	// Since p-1 is not prime, g might have a smaller order that divides p-1.
-	// We cannot confirm the exact order of g, but we make sure it is not too small.
-	gExpI := new(big.Int).Set(g)
-	i := 1
-	threshold := 2 << 17 // we want order > threshold
-	for i < threshold {
-		i++ // we check every order to make sure key validation is not easily bypassed by guessing y'
-		gExpI.Mod(new(big.Int).Mul(gExpI, g), p)
-		if gExpI.Cmp(one) == 0 {
-			return errors.KeyInvalidError("elgamal: order too small")
-		}
-	}
-	// Check y
-	if new(big.Int).Exp(g, x, p).Cmp(y) != 0 {
-		return errors.KeyInvalidError("elgamal: mismatching values")
-	}
 
 	return nil
 }

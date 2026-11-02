@@ -7,7 +7,6 @@ package packet
 import (
 	"bytes"
 	"crypto"
-	"crypto/dsa"
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/rsa"
@@ -22,7 +21,6 @@ import (
 
 	"github.com/thelemail/go-crypto/openpgp/ecdsa"
 	"github.com/thelemail/go-crypto/openpgp/eddsa"
-	"github.com/thelemail/go-crypto/openpgp/elgamal"
 	"github.com/thelemail/go-crypto/openpgp/internal/ecc"
 	"github.com/thelemail/go-crypto/openpgp/internal/encoding"
 	"github.com/thelemail/go-crypto/openpgp/s2k"
@@ -37,10 +35,6 @@ var privateKeyTests = []struct {
 	{
 		privKeyRSAHex,
 		time.Unix(0x4cc349a8, 0),
-	},
-	{
-		privKeyElGamalHex,
-		time.Unix(0x4df9ee1a, 0),
 	},
 }
 
@@ -528,88 +522,6 @@ func TestEncryptDecryptEdDSAPrivateKeyRandomizeFast(t *testing.T) {
 func TestIssue11505(t *testing.T) {
 	// parsing a rsa private key with p or q == 1 used to panic due to a divide by zero
 	_, _ = Read(readerFromHex("9c3004303030300100000011303030000000000000010130303030303030303030303030303030303030303030303030303030303030303030303030303030303030"))
-}
-
-func TestDSAValidation(t *testing.T) {
-	var priv dsa.PrivateKey
-	params := &priv.Parameters
-	err := dsa.GenerateParameters(params, rand.Reader, dsa.L1024N160)
-	if err != nil {
-		t.Fatalf("could not generate test params: %s", err)
-	}
-	err = dsa.GenerateKey(&priv, rand.Reader)
-	if err != nil {
-		t.Fatalf("could not generate test key: %s", err)
-	}
-	if err = validateDSAParameters(&priv); err != nil {
-		t.Fatalf("valid key marked as invalid: %s", err)
-	}
-	// g = 1
-	g := *priv.G
-	priv.G = big.NewInt(1)
-	if err = validateDSAParameters(&priv); err == nil {
-		t.Fatalf("failed to detect invalid key (g)")
-	}
-	priv.G = &g
-	// corrupt q
-	q := *priv.Q
-	priv.Q.Sub(priv.Q, big.NewInt(1))
-	if err = validateDSAParameters(&priv); err == nil {
-		t.Fatalf("failed to detect invalid key (q)")
-	}
-	priv.Q = &q
-	// corrupt y
-	y := *priv.Y
-	priv.Y.Sub(priv.Y, big.NewInt(1))
-	if err = validateDSAParameters(&priv); err == nil {
-		t.Fatalf("failed to detect invalid key (y)")
-	}
-	priv.Y = &y
-}
-
-func TestElGamalValidation(t *testing.T) {
-	// we generate dsa key and then reuse values for elgamal
-	var dsaPriv dsa.PrivateKey
-	params := &dsaPriv.Parameters
-	err := dsa.GenerateParameters(params, rand.Reader, dsa.L1024N160)
-	if err != nil {
-		t.Fatalf("could not generate test params: %s", err)
-	}
-	err = dsa.GenerateKey(&dsaPriv, rand.Reader)
-	if err != nil {
-		t.Fatalf("could not generate test key: %s", err)
-	}
-	// this elgamal key is technically not valid since g has order q < p-1
-	// but q is large enough and tests should pass
-	var priv elgamal.PrivateKey
-	priv.G = dsaPriv.G
-	priv.P = dsaPriv.P
-	priv.X = dsaPriv.X
-	priv.Y = dsaPriv.Y
-	if err = validateElGamalParameters(&priv); err != nil {
-		t.Fatalf("valid key marked as invalid: %s", err)
-	}
-	// g = 1
-	g := *priv.G
-	priv.G = big.NewInt(1)
-	if err = validateElGamalParameters(&priv); err == nil {
-		t.Fatalf("failed to detect invalid key (g)")
-	}
-	// g of order 2: g**(p-1)/2
-	pSub1 := new(big.Int).Sub(priv.P, big.NewInt(1))
-	pSub1Div2 := new(big.Int).Rsh(pSub1, 1)
-	priv.G = new(big.Int).Exp(&g, pSub1Div2, priv.P)
-	if err = validateElGamalParameters(&priv); err == nil {
-		t.Fatalf("failed to detect invalid key (g small order)")
-	}
-	priv.G = &g
-	// corrupt y
-	y := *priv.Y
-	priv.Y.Sub(priv.Y, big.NewInt(1))
-	if err = validateElGamalParameters(&priv); err == nil {
-		t.Fatalf("failed to detect invalid key (y)")
-	}
-	priv.Y = &y
 }
 
 func TestECDSASignerRandomizedNotation(t *testing.T) {

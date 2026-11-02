@@ -12,11 +12,9 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"io"
-	"math/big"
 	"strconv"
 
 	"github.com/thelemail/go-crypto/openpgp/ecdh"
-	"github.com/thelemail/go-crypto/openpgp/elgamal"
 	"github.com/thelemail/go-crypto/openpgp/errors"
 	"github.com/thelemail/go-crypto/openpgp/internal/encoding"
 	"github.com/thelemail/go-crypto/openpgp/mlkem_ecdh"
@@ -34,8 +32,8 @@ type EncryptedKey struct {
 	CipherFunc     CipherFunction // only valid after a successful Decrypt for a v3 packet
 	Key            []byte         // only valid after a successful Decrypt
 
-	encryptedMPI1        encoding.Field // used for RSA, Elgamal and ECDH
-	encryptedMPI2        encoding.Field // used for Elgamal and ECDH
+	encryptedMPI1        encoding.Field // used for RSA and ECDH
+	encryptedMPI2        encoding.Field // used for ECDH
 	ephemeralPublicEcc   []byte         // used for X25519 and ML-KEM
 	ephemeralPublicMlKem []byte         // used for ML-KEM
 	encryptedSession     []byte         // used for X25519 and ML-KEM
@@ -105,16 +103,6 @@ func (e *EncryptedKey) parse(r io.Reader) (err error) {
 		if _, err = e.encryptedMPI1.ReadFrom(r); err != nil {
 			return
 		}
-	case PubKeyAlgoElGamal:
-		e.encryptedMPI1 = new(encoding.MPI)
-		if _, err = e.encryptedMPI1.ReadFrom(r); err != nil {
-			return
-		}
-
-		e.encryptedMPI2 = new(encoding.MPI)
-		if _, err = e.encryptedMPI2.ReadFrom(r); err != nil {
-			return
-		}
 	case PubKeyAlgoECDH:
 		e.encryptedMPI1 = new(encoding.MPI)
 		if _, err = e.encryptedMPI1.ReadFrom(r); err != nil {
@@ -174,10 +162,6 @@ func (e *EncryptedKey) Decrypt(priv *PrivateKey, config *Config) error {
 		// Supports both *rsa.PrivateKey and crypto.Decrypter
 		k := priv.PrivateKey.(crypto.Decrypter)
 		b, err = k.Decrypt(config.Random(), padToKeySize(k.Public().(*rsa.PublicKey), e.encryptedMPI1.Bytes()), nil)
-	case PubKeyAlgoElGamal:
-		c1 := new(big.Int).SetBytes(e.encryptedMPI1.Bytes())
-		c2 := new(big.Int).SetBytes(e.encryptedMPI2.Bytes())
-		b, err = elgamal.Decrypt(priv.PrivateKey.(*elgamal.PrivateKey), c1, c2)
 	case PubKeyAlgoECDH:
 		vsG := e.encryptedMPI1.Bytes()
 		m := e.encryptedMPI2.Bytes()
@@ -197,7 +181,7 @@ func (e *EncryptedKey) Decrypt(priv *PrivateKey, config *Config) error {
 
 	var key []byte
 	switch priv.PubKeyAlgo {
-	case PubKeyAlgoRSA, PubKeyAlgoElGamal, PubKeyAlgoECDH:
+	case PubKeyAlgoRSA, PubKeyAlgoECDH:
 		keyOffset := 0
 		if e.Version < 6 {
 			if len(b) == 0 {
@@ -236,8 +220,6 @@ func (e *EncryptedKey) Serialize(w io.Writer) error {
 	switch e.Algo {
 	case PubKeyAlgoRSA:
 		encodedLength = int(e.encryptedMPI1.EncodedLength())
-	case PubKeyAlgoElGamal:
-		encodedLength = int(e.encryptedMPI1.EncodedLength()) + int(e.encryptedMPI2.EncodedLength())
 	case PubKeyAlgoECDH:
 		encodedLength = int(e.encryptedMPI1.EncodedLength()) + int(e.encryptedMPI2.EncodedLength())
 	case PubKeyAlgoX25519:
@@ -299,12 +281,6 @@ func (e *EncryptedKey) Serialize(w io.Writer) error {
 	case PubKeyAlgoRSA:
 		_, err := w.Write(e.encryptedMPI1.EncodedBytes())
 		return err
-	case PubKeyAlgoElGamal:
-		if _, err := w.Write(e.encryptedMPI1.EncodedBytes()); err != nil {
-			return err
-		}
-		_, err := w.Write(e.encryptedMPI2.EncodedBytes())
-		return err
 	case PubKeyAlgoECDH:
 		if _, err := w.Write(e.encryptedMPI1.EncodedBytes()); err != nil {
 			return err
@@ -345,10 +321,7 @@ func SerializeEncryptedKeyAEADwithHiddenOption(w io.Writer, pub *PublicKey, ciph
 	if aeadSupported {
 		version = 6
 	}
-	// An implementation MUST NOT generate ElGamal v6 PKESKs.
-	if version == 6 && pub.PubKeyAlgo == PubKeyAlgoElGamal {
-		return errors.InvalidArgumentError("ElGamal v6 PKESK are not allowed")
-	}
+
 	// In v3 PKESKs, for X25519 mandate using AES
 	if version == 3 && cipherFunc != CipherAES128 && cipherFunc != CipherAES192 && cipherFunc != CipherAES256 {
 		switch pub.PubKeyAlgo {
@@ -392,7 +365,7 @@ func SerializeEncryptedKeyAEADwithHiddenOption(w io.Writer, pub *PublicKey, ciph
 
 	var keyBlock []byte
 	switch pub.PubKeyAlgo {
-	case PubKeyAlgoRSA, PubKeyAlgoElGamal, PubKeyAlgoECDH:
+	case PubKeyAlgoRSA, PubKeyAlgoECDH:
 		lenKeyBlock := len(key) + 2
 		if version < 6 {
 			lenKeyBlock += 1 // cipher type included
@@ -412,16 +385,12 @@ func SerializeEncryptedKeyAEADwithHiddenOption(w io.Writer, pub *PublicKey, ciph
 	switch pub.PubKeyAlgo {
 	case PubKeyAlgoRSA:
 		return serializeEncryptedKeyRSA(w, config.Random(), buf[:lenHeaderWritten], pub.PublicKey.(*rsa.PublicKey), keyBlock)
-	case PubKeyAlgoElGamal:
-		return serializeEncryptedKeyElGamal(w, config.Random(), buf[:lenHeaderWritten], pub.PublicKey.(*elgamal.PublicKey), keyBlock)
 	case PubKeyAlgoECDH:
 		return serializeEncryptedKeyECDH(w, config.Random(), buf[:lenHeaderWritten], pub.PublicKey.(*ecdh.PublicKey), keyBlock, pub.oid, pub.Fingerprint)
 	case PubKeyAlgoX25519:
 		return serializeEncryptedKeyX25519(w, config.Random(), buf[:lenHeaderWritten], pub.PublicKey.(*x25519.PublicKey), keyBlock, byte(cipherFunc), version)
 	case PubKeyAlgoMlkem768X25519:
 		return serializeEncryptedKeyMlkem(w, config.Random(), buf[:lenHeaderWritten], pub.PublicKey.(*mlkem_ecdh.PublicKey), keyBlock, byte(cipherFunc), version)
-	case PubKeyAlgoDSA:
-		return errors.InvalidArgumentError("cannot encrypt to public key of type " + strconv.Itoa(int(pub.PubKeyAlgo)))
 	}
 
 	return errors.UnsupportedError("encrypting a key to public key of type " + strconv.Itoa(int(pub.PubKeyAlgo)))
@@ -463,31 +432,6 @@ func serializeEncryptedKeyRSA(w io.Writer, rand io.Reader, header []byte, pub *r
 		return err
 	}
 	_, err = w.Write(cipherMPI.EncodedBytes())
-	return err
-}
-
-func serializeEncryptedKeyElGamal(w io.Writer, rand io.Reader, header []byte, pub *elgamal.PublicKey, keyBlock []byte) error {
-	c1, c2, err := elgamal.Encrypt(rand, pub, keyBlock)
-	if err != nil {
-		return errors.InvalidArgumentError("ElGamal encryption failed: " + err.Error())
-	}
-
-	packetLen := len(header) /* header length */
-	packetLen += 2 /* mpi size */ + (c1.BitLen()+7)/8
-	packetLen += 2 /* mpi size */ + (c2.BitLen()+7)/8
-
-	err = serializeHeader(w, packetTypeEncryptedKey, packetLen)
-	if err != nil {
-		return err
-	}
-	_, err = w.Write(header[:])
-	if err != nil {
-		return err
-	}
-	if _, err = w.Write(new(encoding.MPI).SetBig(c1).EncodedBytes()); err != nil {
-		return err
-	}
-	_, err = w.Write(new(encoding.MPI).SetBig(c2).EncodedBytes())
 	return err
 }
 

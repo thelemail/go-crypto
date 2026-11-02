@@ -7,7 +7,6 @@ package packet
 import (
 	"bytes"
 	"crypto"
-	"crypto/dsa"
 	"crypto/mldsa"
 	"encoding/asn1"
 	"encoding/binary"
@@ -73,7 +72,6 @@ type Signature struct {
 	CreationTime time.Time
 
 	RSASignature         encoding.Field
-	DSASigR, DSASigS     encoding.Field
 	ECDSASigR, ECDSASigS encoding.Field
 	EdDSASigR, EdDSASigS encoding.Field
 	EdSig                []byte
@@ -193,8 +191,7 @@ func (sig *Signature) parse(r io.Reader) (err error) {
 	sig.SigType = SignatureType(buf[0])
 	sig.PubKeyAlgo = PublicKeyAlgorithm(buf[1])
 	switch sig.PubKeyAlgo {
-	case PubKeyAlgoRSA, PubKeyAlgoDSA,
-		PubKeyAlgoECDSA, PubKeyAlgoEdDSA,
+	case PubKeyAlgoRSA, PubKeyAlgoECDSA, PubKeyAlgoEdDSA,
 		PubKeyAlgoEd25519, PubKeyAlgoMldsa65Ed25519:
 	default:
 		err = errors.UnsupportedError("public key algorithm " + strconv.Itoa(int(sig.PubKeyAlgo)))
@@ -295,14 +292,6 @@ func (sig *Signature) parse(r io.Reader) (err error) {
 	case PubKeyAlgoRSA:
 		sig.RSASignature = new(encoding.MPI)
 		_, err = sig.RSASignature.ReadFrom(r)
-	case PubKeyAlgoDSA:
-		sig.DSASigR = new(encoding.MPI)
-		if _, err = sig.DSASigR.ReadFrom(r); err != nil {
-			return
-		}
-
-		sig.DSASigS = new(encoding.MPI)
-		_, err = sig.DSASigS.ReadFrom(r)
 	case PubKeyAlgoECDSA:
 		sig.ECDSASigR = new(encoding.MPI)
 		if _, err = sig.ECDSASigR.ReadFrom(r); err != nil {
@@ -955,19 +944,6 @@ func (sig *Signature) Sign(h hash.Hash, priv *PrivateKey, config *Config) (err e
 		if err == nil {
 			sig.RSASignature = encoding.NewMPI(sigdata)
 		}
-	case PubKeyAlgoDSA:
-		dsaPriv := priv.PrivateKey.(*dsa.PrivateKey)
-
-		// Need to truncate hashBytes to match FIPS 186-3 section 4.6.
-		subgroupSize := (dsaPriv.Q.BitLen() + 7) / 8
-		if len(digest) > subgroupSize {
-			digest = digest[:subgroupSize]
-		}
-		r, s, err := dsa.Sign(config.Random(), dsaPriv, digest)
-		if err == nil {
-			sig.DSASigR = new(encoding.MPI).SetBig(r)
-			sig.DSASigS = new(encoding.MPI).SetBig(s)
-		}
 	case PubKeyAlgoECDSA:
 		var r, s *big.Int
 		if sk, ok := priv.PrivateKey.(*ecdsa.PrivateKey); ok {
@@ -1125,7 +1101,7 @@ func (sig *Signature) Serialize(w io.Writer) (err error) {
 	if len(sig.outSubpackets) == 0 {
 		sig.outSubpackets = sig.rawSubpackets
 	}
-	if sig.RSASignature == nil && sig.DSASigR == nil && sig.ECDSASigR == nil && sig.EdDSASigR == nil && sig.EdSig == nil {
+	if sig.RSASignature == nil && sig.ECDSASigR == nil && sig.EdDSASigR == nil && sig.EdSig == nil {
 		return errors.InvalidArgumentError("Signature: need to call Sign, SignUserId or SignKey before Serialize")
 	}
 
@@ -1133,9 +1109,6 @@ func (sig *Signature) Serialize(w io.Writer) (err error) {
 	switch sig.PubKeyAlgo {
 	case PubKeyAlgoRSA:
 		sigLength = int(sig.RSASignature.EncodedLength())
-	case PubKeyAlgoDSA:
-		sigLength = int(sig.DSASigR.EncodedLength())
-		sigLength += int(sig.DSASigS.EncodedLength())
 	case PubKeyAlgoECDSA:
 		sigLength = int(sig.ECDSASigR.EncodedLength())
 		sigLength += int(sig.ECDSASigS.EncodedLength())
@@ -1234,11 +1207,6 @@ func (sig *Signature) serializeBody(w io.Writer) (err error) {
 	switch sig.PubKeyAlgo {
 	case PubKeyAlgoRSA:
 		_, err = w.Write(sig.RSASignature.EncodedBytes())
-	case PubKeyAlgoDSA:
-		if _, err = w.Write(sig.DSASigR.EncodedBytes()); err != nil {
-			return
-		}
-		_, err = w.Write(sig.DSASigS.EncodedBytes())
 	case PubKeyAlgoECDSA:
 		if _, err = w.Write(sig.ECDSASigR.EncodedBytes()); err != nil {
 			return

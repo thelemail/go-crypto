@@ -15,10 +15,6 @@ import (
 )
 
 var (
-	defaultRejectPublicKeyAlgorithms = map[PublicKeyAlgorithm]bool{
-		PubKeyAlgoElGamal: true,
-		PubKeyAlgoDSA:     true,
-	}
 	defaultRejectHashAlgorithms = map[crypto.Hash]bool{
 		crypto.MD5:       true,
 		crypto.RIPEMD160: true,
@@ -100,7 +96,6 @@ type Config struct {
 	// Minimum RSA key size allowed for key generation and message signing, verification and encryption.
 	MinRSABits uint16
 	// Reject insecure algorithms, only works with v2 api
-	RejectPublicKeyAlgorithms   map[PublicKeyAlgorithm]bool
 	RejectHashAlgorithms        map[crypto.Hash]bool
 	RejectMessageHashAlgorithms map[crypto.Hash]bool
 	RejectCurves                map[Curve]bool
@@ -358,17 +353,6 @@ func (c *Config) MinimumRSABits() uint16 {
 		return 2047
 	}
 	return c.MinRSABits
-}
-
-func (c *Config) RejectPublicKeyAlgorithm(alg PublicKeyAlgorithm) bool {
-	var rejectedAlgorithms map[PublicKeyAlgorithm]bool
-	if c == nil || c.RejectPublicKeyAlgorithms == nil {
-		// Default
-		rejectedAlgorithms = defaultRejectPublicKeyAlgorithms
-	} else {
-		rejectedAlgorithms = c.RejectPublicKeyAlgorithms
-	}
-	return rejectedAlgorithms[alg]
 }
 
 func (c *Config) RejectHashAlgorithm(hash crypto.Hash) bool {

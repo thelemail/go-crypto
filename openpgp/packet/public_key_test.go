@@ -26,7 +26,6 @@ var pubKeyTests = []struct {
 	keyIdShort     string
 }{
 	{rsaPkDataHex, rsaFingerprintHex, time.Unix(0x4d3c5c10, 0), PubKeyAlgoRSA, 0xa34d7e18c20c31bb, "A34D7E18C20C31BB", "C20C31BB"},
-	{dsaPkDataHex, dsaFingerprintHex, time.Unix(0x4d432f89, 0), PubKeyAlgoDSA, 0x8e8fbe54062f19ed, "8E8FBE54062F19ED", "062F19ED"},
 	{ecdsaPkDataHex, ecdsaFingerprintHex, time.Unix(0x5071c294, 0), PubKeyAlgoECDSA, 0x43fe956c542ca00b, "43FE956C542CA00B", "542CA00B"},
 	{ecdhPkDataHex, ecdhFingerprintHex, time.Unix(0x4d530592, 0), PubKeyAlgoECDH, 0xaa8B938f9a201946, "AA8B938F9A201946", "9A201946"},
 	{eddsaPkDataHex, eddsaFingerprintHex, time.Unix(0x056e2132b, 0), PubKeyAlgoEdDSA, 0x907e75e1dd99ad8, "0907E75E1DD99AD8", "1DD99AD8"},

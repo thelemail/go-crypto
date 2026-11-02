@@ -18,7 +18,6 @@ import (
 )
 
 var allowAllAlgorithmsConfig = &packet.Config{
-	RejectPublicKeyAlgorithms:   map[packet.PublicKeyAlgorithm]bool{},
 	RejectMessageHashAlgorithms: map[crypto.Hash]bool{},
 	RejectCurves:                map[packet.Curve]bool{},
 	MinRSABits:                  512,

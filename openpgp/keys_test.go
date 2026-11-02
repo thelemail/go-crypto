@@ -3,7 +3,6 @@ package openpgp
 import (
 	"bytes"
 	"crypto"
-	"crypto/dsa"
 	"crypto/rand"
 	"crypto/rsa"
 	"fmt"
@@ -17,7 +16,6 @@ import (
 	"github.com/thelemail/go-crypto/openpgp/ecdh"
 	"github.com/thelemail/go-crypto/openpgp/ecdsa"
 	"github.com/thelemail/go-crypto/openpgp/eddsa"
-	"github.com/thelemail/go-crypto/openpgp/elgamal"
 	"github.com/thelemail/go-crypto/openpgp/errors"
 	"github.com/thelemail/go-crypto/openpgp/internal/algorithm"
 	"github.com/thelemail/go-crypto/openpgp/packet"
@@ -287,22 +285,6 @@ func TestInvalidCrossSignature(t *testing.T) {
 	const expectedMsg = "subkey signature invalid"
 	if !strings.Contains(string(structural), expectedMsg) {
 		t.Fatalf("Unexpected error: %q. Expected it to contain %q", err, expectedMsg)
-	}
-}
-
-func TestGoodCrossSignature(t *testing.T) {
-	// This public key has a signing subkey, and the subkey has an
-	// embedded cross-signature which correctly validates over the
-	// primary and subkey.
-	keys, err := ReadArmoredKeyRing(bytes.NewBufferString(goodCrossSignatureKey))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(keys) != 1 {
-		t.Errorf("Failed to accept key with good cross signature, %d", len(keys))
-	}
-	if len(keys[0].Subkeys) != 1 {
-		t.Errorf("Failed to accept good subkey, %d", len(keys[0].Subkeys))
 	}
 }
 
@@ -601,7 +583,8 @@ func TestSubkeyRevocation(t *testing.T) {
 	// sub   1024R/D63636E2B96AE423 2014-03-25
 	// sub   1024D/DBCE4EE19529437F 2014-03-25
 	// sub   1024R/677815E371C2FD23 2014-03-25 [revoked: 2014-03-25]
-	validKeys := []uint64{0x4EF7E4BECCDE97F0, 0xD63636E2B96AE423, 0xDBCE4EE19529437F}
+	validKeys := []uint64{0x4EF7E4BECCDE97F0, 0xD63636E2B96AE423}
+	unsupportedKey := uint64(0xDBCE4EE19529437F)
 	encryptionKey := uint64(0xD63636E2B96AE423)
 	revokedKey := uint64(0x677815E371C2FD23)
 
@@ -625,6 +608,10 @@ func TestSubkeyRevocation(t *testing.T) {
 				t.Errorf("Expected SigningKeyById to find key %X", id)
 			}
 		}
+	}
+
+	if keys := kring.KeysById(unsupportedKey); len(keys) != 0 {
+		t.Errorf("Expected KeysById to skip unsupported key %X, but got %d matches", unsupportedKey, len(keys))
 	}
 
 	keys := kring.KeysById(revokedKey)
@@ -700,7 +687,7 @@ func TestKeyUsage(t *testing.T) {
 	// sub  1024R/64D5F5BB  created: 2014-04-02  expires: never       usage: E
 	// sub  1024D/BC0BA992  created: 2014-04-02  expires: never       usage: S
 	certifiers := []uint64{0xA42704B92866382A}
-	signers := []uint64{0xA42704B92866382A, 0x42CE2C64BC0BA992}
+	signers := []uint64{0xA42704B92866382A}
 	encrypters := []uint64{0x09C0C7D9936C9153, 0xC104E98664D5F5BB}
 
 	for _, id := range certifiers {
@@ -1623,9 +1610,6 @@ func TestKeyValidateOnDecrypt(t *testing.T) {
 		}
 	})
 
-	t.Run("DSA With El Gamal Subkey", func(t *testing.T) {
-		testKeyValidateDsaElGamalOnDecrypt(t, randomPassword)
-	})
 }
 
 func testGenerateRSA(t *testing.T, bits int) *Entity {
@@ -1760,49 +1744,6 @@ func testKeyValidateEddsaOnDecrypt(t *testing.T, eddsaEntity *Entity, password [
 	err = ecdhSubkey.Decrypt(password)
 	if _, ok := err.(errors.KeyInvalidError); !ok {
 		t.Fatal("Failed to detect invalid ECDH key")
-	}
-}
-
-// ...the legacy bits
-func testKeyValidateDsaElGamalOnDecrypt(t *testing.T, randomPassword []byte) {
-	var err error
-
-	dsaKeys, err := ReadArmoredKeyRing(bytes.NewBufferString(dsaPrivateKeyWithElGamalSubkey))
-	if err != nil {
-		t.Fatal(err)
-	}
-	dsaPrimaryKey := dsaKeys[0].PrivateKey // already encrypted
-	if err := dsaPrimaryKey.Decrypt([]byte("password")); err != nil {
-		t.Fatal("Valid DSA key was marked as invalid: ", err)
-	}
-
-	if err = dsaPrimaryKey.Encrypt(randomPassword); err != nil {
-		t.Fatal(err)
-	}
-	// corrupt DSA generator
-	G := dsaPrimaryKey.PublicKey.PublicKey.(*dsa.PublicKey).G
-	dsaPrimaryKey.PublicKey.PublicKey.(*dsa.PublicKey).G = new(big.Int).Add(G, big.NewInt(1))
-	err = dsaPrimaryKey.Decrypt(randomPassword)
-	if _, ok := err.(errors.KeyInvalidError); !ok {
-		t.Fatal("Failed to detect invalid DSA key")
-	}
-
-	// ElGamal
-	elGamalSubkey := dsaKeys[0].Subkeys[0].PrivateKey // already encrypted
-	if err := elGamalSubkey.Decrypt([]byte("password")); err != nil {
-		t.Fatal("Valid ElGamal key was marked as invalid: ", err)
-	}
-
-	if err = elGamalSubkey.Encrypt(randomPassword); err != nil {
-		t.Fatal(err)
-	}
-
-	// corrupt ElGamal generator
-	G = elGamalSubkey.PublicKey.PublicKey.(*elgamal.PublicKey).G
-	elGamalSubkey.PublicKey.PublicKey.(*elgamal.PublicKey).G = new(big.Int).Add(G, big.NewInt(1))
-	err = elGamalSubkey.Decrypt(randomPassword)
-	if _, ok := err.(errors.KeyInvalidError); !ok {
-		t.Fatal("Failed to detect invalid ElGamal key")
 	}
 }
 

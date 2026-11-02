@@ -499,9 +499,7 @@ const (
 type PublicKeyAlgorithm uint8
 
 const (
-	PubKeyAlgoRSA     PublicKeyAlgorithm = 1
-	PubKeyAlgoElGamal PublicKeyAlgorithm = 16
-	PubKeyAlgoDSA     PublicKeyAlgorithm = 17
+	PubKeyAlgoRSA PublicKeyAlgorithm = 1
 	// RFC 6637, Section 5.
 	PubKeyAlgoECDH  PublicKeyAlgorithm = 18
 	PubKeyAlgoECDSA PublicKeyAlgorithm = 19
@@ -540,7 +538,7 @@ const (
 // key of the given type.
 func (pka PublicKeyAlgorithm) CanEncrypt() bool {
 	switch pka {
-	case PubKeyAlgoRSA, PubKeyAlgoElGamal, PubKeyAlgoECDH, PubKeyAlgoX25519,
+	case PubKeyAlgoRSA, PubKeyAlgoECDH, PubKeyAlgoX25519,
 		PubKeyAlgoMlkem768X25519:
 		return true
 	}
@@ -551,7 +549,7 @@ func (pka PublicKeyAlgorithm) CanEncrypt() bool {
 // sign a message.
 func (pka PublicKeyAlgorithm) CanSign() bool {
 	switch pka {
-	case PubKeyAlgoRSA, PubKeyAlgoDSA, PubKeyAlgoECDSA, PubKeyAlgoEdDSA,
+	case PubKeyAlgoRSA, PubKeyAlgoECDSA, PubKeyAlgoEdDSA,
 		PubKeyAlgoEd25519, PubKeyAlgoMldsa65Ed25519:
 		return true
 	}

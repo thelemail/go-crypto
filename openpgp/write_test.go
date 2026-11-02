@@ -46,18 +46,6 @@ func TestSignTextDetached(t *testing.T) {
 	testDetachedSignature(t, kring, out, signedInput, "check", testKey1KeyId)
 }
 
-func TestSignDetachedDSA(t *testing.T) {
-	kring, _ := ReadKeyRing(readerFromHex(dsaTestKeyPrivateHex))
-	out := bytes.NewBuffer(nil)
-	message := bytes.NewBufferString(signedInput)
-	err := DetachSign(out, kring[0], message, nil)
-	if err != nil {
-		t.Error(err)
-	}
-
-	testDetachedSignature(t, kring, out, signedInput, "check", testKey3KeyId)
-}
-
 func TestSignDetachedP256(t *testing.T) {
 	kring, _ := ReadKeyRing(readerFromHex(p256TestKeyPrivateHex))
 	if err := kring[0].PrivateKey.Decrypt([]byte("passphrase")); err != nil {
@@ -451,16 +439,6 @@ var testEncryptionTests = map[string]struct {
 		true,
 		true,
 	},
-	"DSA_ElGamal": {
-		dsaElGamalTestKeysHex,
-		false,
-		false,
-	},
-	"DSA_ElGamal_signed": {
-		dsaElGamalTestKeysHex,
-		true,
-		false,
-	},
 	"v6_Ed25519_ML-KEM-768+X25519": {
 		v6Ed25519Mlkem768X25519PrivateHex,
 		false,
@@ -617,9 +595,6 @@ var testSigningTests = []struct {
 		testKeys1And2PrivateHex,
 	},
 	{
-		dsaElGamalTestKeysHex,
-	},
-	{
 		ed25519wX25519Key,
 	},
 }
@@ -727,7 +702,7 @@ ParsePackets:
 		case *packet.EncryptedKey:
 			// This packet contains the decryption key encrypted to a public key.
 			switch p.Algo {
-			case packet.PubKeyAlgoRSA, packet.PubKeyAlgoElGamal, packet.PubKeyAlgoECDH,
+			case packet.PubKeyAlgoRSA, packet.PubKeyAlgoECDH,
 				packet.PubKeyAlgoMlkem768X25519:
 				break
 			default:

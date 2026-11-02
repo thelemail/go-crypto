@@ -72,17 +72,6 @@ func TestReadPrivateKeyRing(t *testing.T) {
 	}
 }
 
-func TestReadDSAKey(t *testing.T) {
-	kring, err := ReadKeyRing(readerFromHex(dsaTestKeyHex))
-	if err != nil {
-		t.Error(err)
-		return
-	}
-	if len(kring) != 1 || uint32(kring[0].PrimaryKey.KeyId) != 0x0CCC0360 {
-		t.Errorf("bad parse: %#v", kring)
-	}
-}
-
 func TestReadP256Key(t *testing.T) {
 	kring, err := ReadKeyRing(readerFromHex(p256TestKeyHex))
 	if err != nil {
@@ -91,15 +80,6 @@ func TestReadP256Key(t *testing.T) {
 	}
 	if len(kring) != 1 || uint32(kring[0].PrimaryKey.KeyId) != 0x5918513E {
 		t.Errorf("bad parse: %#v", kring)
-	}
-}
-
-func TestDSAHashTruncatation(t *testing.T) {
-	// dsaKeyWithSHA512 was generated with GnuPG and --cert-digest-algo
-	// SHA512 in order to require DSA hash truncation to verify correctly.
-	_, err := ReadKeyRing(readerFromHex(dsaKeyWithSHA512))
-	if err != nil {
-		t.Error(err)
 	}
 }
 
@@ -185,14 +165,6 @@ func TestSignedEncryptedMessage(t *testing.T) {
 			0x2a67d68660df41c7,
 			verifiedSignatureEncryptedMessageHex,
 			unverifiedSignatureEncryptedMessageHex,
-		},
-		{
-			dsaElGamalTestKeysHex,
-			signedEncryptedMessage2Hex,
-			0x33af447ccd759b09,
-			0xcf6a7abcd43e3673,
-			signatureEncryptedMessage2Hex,
-			"",
 		},
 	}
 	for i, test := range signedEncryptedMessageTests {
@@ -372,14 +344,9 @@ func TestDetachedSignature(t *testing.T) {
 	}
 }
 
-func TestDetachedSignatureDSA(t *testing.T) {
-	kring, _ := ReadKeyRing(readerFromHex(dsaTestKeyHex))
-	testDetachedSignature(t, kring, readerFromHex(detachedSignatureDSAHex), signedInput, "binary", testKey3KeyId)
-}
-
-func TestMultipleSignaturePacketsDSA(t *testing.T) {
-	kring, _ := ReadKeyRing(readerFromHex(dsaTestKeyHex))
-	testDetachedSignature(t, kring, readerFromHex(missingHashFunctionHex+detachedSignatureDSAHex), signedInput, "binary", testKey3KeyId)
+func TestMultipleSignaturePackets(t *testing.T) {
+	kring, _ := ReadKeyRing(readerFromHex(testKeys1And2Hex))
+	testDetachedSignature(t, kring, readerFromHex(missingHashFunctionHex+detachedSignatureHex), signedInput, "binary", testKey1KeyId)
 }
 
 func TestDetachedSignatureP256(t *testing.T) {
