@@ -2,6 +2,7 @@
 package mldsa_eddsa_test
 
 import (
+	"crypto/mldsa"
 	"crypto/rand"
 	"io"
 	"testing"
@@ -30,12 +31,11 @@ func testvalidateAlgo(t *testing.T, algId packet.PublicKeyAlgorithm) {
 		t.Fatalf("valid key marked as invalid: %s", err)
 	}
 
-	bin, err := key.PublicMldsa.MarshalBinary()
-	if err != nil {
-		t.Fatal(err)
-	}
+	bin := key.PublicMldsa.Bytes()
 	bin[5] ^= 1
-	key.PublicMldsa, err = key.Mldsa.UnmarshalBinaryPublicKey(bin) //PublicKeyFromBytes(bin)
+
+	var err error
+	key.PublicMldsa, err = mldsa.NewPublicKey(mldsa.MLDSA65(), bin)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -62,12 +62,7 @@ func testGenerateKeyAlgo(t *testing.T, algId packet.PublicKeyAlgorithm) *mldsa_e
 		t.Errorf("error getting curve: %s", err)
 	}
 
-	kyberObj, err := packet.GetMldsaFromAlgID(algId)
-	if err != nil {
-		t.Errorf("error getting ML-DSA: %s", err)
-	}
-
-	priv, err := mldsa_eddsa.GenerateKey(rand.Reader, uint8(algId), curveObj, kyberObj)
+	priv, err := mldsa_eddsa.GenerateKey(rand.Reader, uint8(algId), curveObj)
 	if err != nil {
 		t.Fatal(err)
 	}

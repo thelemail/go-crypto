@@ -6,6 +6,7 @@ package packet
 
 import (
 	"crypto/dsa"
+	"crypto/mldsa"
 	"crypto/mlkem"
 	"crypto/rsa"
 	"crypto/sha1"
@@ -20,8 +21,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/cloudflare/circl/sign"
-	"github.com/cloudflare/circl/sign/mldsa/mldsa65"
 	"github.com/thelemail/go-crypto/openpgp/ecdh"
 	"github.com/thelemail/go-crypto/openpgp/ecdsa"
 	"github.com/thelemail/go-crypto/openpgp/ed25519"
@@ -279,7 +278,7 @@ func (pk *PublicKey) parse(r io.Reader) (err error) {
 		if pk.Version < 6 {
 			return goerrors.New("openpgp: ML-DSA-65+Ed25519 may only be used with v6+")
 		}
-		err = pk.parseMldsaEddsa(r, 32, mldsa65.PublicKeySize)
+		err = pk.parseMldsaEddsa(r, 32, mldsa.MLDSA65PublicKeySize)
 	default:
 		err = errors.UnsupportedError("public key type: " + strconv.Itoa(int(pk.PubKeyAlgo)))
 	}
@@ -625,11 +624,7 @@ func (pk *PublicKey) parseMldsaEddsa(r io.Reader, ecLen, dLen int) (err error) {
 		return err
 	}
 
-	if pub.Mldsa, err = GetMldsaFromAlgID(pk.PubKeyAlgo); err != nil {
-		return err
-	}
-
-	if pub.PublicMldsa, err = pub.Mldsa.UnmarshalBinaryPublicKey(mldsaKey); err != nil {
+	if pub.PublicMldsa, err = mldsa.NewPublicKey(mldsa.MLDSA65(), mldsaKey); err != nil {
 		return err
 	}
 
@@ -725,7 +720,7 @@ func (pk *PublicKey) algorithmSpecificByteCount() uint32 {
 		length += mlkem.EncapsulationKeySize768
 	case PubKeyAlgoMldsa65Ed25519:
 		length += ed25519.PublicKeySize
-		length += mldsa65.PublicKeySize
+		length += mldsa.MLDSA65PublicKeySize
 	default:
 		panic("unknown public key algorithm")
 	}
@@ -823,12 +818,8 @@ func (pk *PublicKey) serializeWithoutHeaders(w io.Writer) (err error) {
 		if _, err = w.Write(publicKey.PublicPoint); err != nil {
 			return
 		}
-		var mldsaBin []byte
-		mldsaBin, err = publicKey.PublicMldsa.MarshalBinary()
-		if err != nil {
-			return
-		}
-		_, err = w.Write(mldsaBin)
+
+		_, err = w.Write(publicKey.PublicMldsa.Bytes())
 		return
 	}
 	return errors.InvalidArgumentError("bad public-key algorithm")
@@ -1137,8 +1128,7 @@ func (pk *PublicKey) BitLength() (bitLength uint16, err error) {
 	case PubKeyAlgoMlkem768X25519:
 		bitLength = uint16(mlkem.EncapsulationKeySize768 * 8)
 	case PubKeyAlgoMldsa65Ed25519:
-		publicKey := pk.PublicKey.(*mldsa_eddsa.PublicKey)
-		bitLength = uint16(publicKey.Mldsa.PublicKeySize() * 8)
+		bitLength = uint16(mldsa.MLDSA65PublicKeySize * 8)
 	default:
 		err = errors.InvalidArgumentError("bad public-key algorithm")
 	}
@@ -1211,14 +1201,5 @@ func GetEdDSACurveFromAlgID(algId PublicKeyAlgorithm) (ecc.EdDSACurve, error) {
 		return ecc.NewEd25519(), nil
 	default:
 		return nil, goerrors.New("packet: unsupported EdDSA public key algorithm")
-	}
-}
-
-func GetMldsaFromAlgID(algId PublicKeyAlgorithm) (sign.Scheme, error) {
-	switch algId {
-	case PubKeyAlgoMldsa65Ed25519:
-		return mldsa65.Scheme(), nil
-	default:
-		return nil, goerrors.New("packet: unsupported ML-DSA public key algorithm")
 	}
 }

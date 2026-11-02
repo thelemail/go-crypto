@@ -3,6 +3,7 @@ package openpgp
 import (
 	"bytes"
 	"crypto"
+	"crypto/mldsa"
 	"crypto/mlkem"
 	"crypto/rand"
 	"strings"
@@ -264,12 +265,9 @@ func TestGeneratePqKey(t *testing.T) {
 			}
 
 			if pk, ok := read.PrivateKey.PublicKey.PublicKey.(*mldsa_eddsa.PublicKey); ok {
-				bin, err := pk.PublicMldsa.MarshalBinary()
-				if err != nil {
-					t.Fatal(err)
-				}
+				bin := pk.PublicMldsa.Bytes()
 				bin[5] ^= 1
-				if pk.PublicMldsa, err = pk.Mldsa.UnmarshalBinaryPublicKey(bin); err != nil {
+				if pk.PublicMldsa, err = mldsa.NewPublicKey(mldsa.MLDSA65(), bin); err != nil {
 					t.Fatal(err)
 				}
 			}

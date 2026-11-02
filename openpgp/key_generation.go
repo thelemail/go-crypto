@@ -322,12 +322,8 @@ func newSigner(config *packet.Config) (signer interface{}, err error) {
 		if err != nil {
 			return nil, err
 		}
-		d, err := packet.GetMldsaFromAlgID(config.PublicKeyAlgorithm())
-		if err != nil {
-			return nil, err
-		}
 
-		return mldsa_eddsa.GenerateKey(config.Random(), uint8(config.PublicKeyAlgorithm()), c, d)
+		return mldsa_eddsa.GenerateKey(config.Random(), uint8(config.PublicKeyAlgorithm()), c)
 	default:
 		return nil, errors.InvalidArgumentError("unsupported public key algorithm")
 	}

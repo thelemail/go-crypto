@@ -3,49 +3,47 @@
 package mldsa_eddsa
 
 import (
+	"crypto/mldsa"
 	goerrors "errors"
 	"io"
 
-	"github.com/cloudflare/circl/sign"
-	"github.com/cloudflare/circl/sign/mldsa/mldsa65"
 	"github.com/thelemail/go-crypto/openpgp/errors"
 	"github.com/thelemail/go-crypto/openpgp/internal/ecc"
 )
 
 const (
-	MlDsaSeedLen = 32
+	MlDsaSeedLen = mldsa.PrivateKeySize
 )
 
 type PublicKey struct {
 	AlgId       uint8
 	Curve       ecc.EdDSACurve
-	Mldsa       sign.Scheme
 	PublicPoint []byte
-	PublicMldsa sign.PublicKey
+	PublicMldsa *mldsa.PublicKey
 }
 
 type PrivateKey struct {
 	PublicKey
 	SecretEc        []byte
-	SecretMldsa     sign.PrivateKey
+	SecretMldsa     *mldsa.PrivateKey
 	SecretMldsaSeed []byte
 }
 
 // GenerateKey generates a ML-DSA + EdDSA composite key as specified in
 // https://www.rfc-editor.org/rfc/rfc9980.html#name-key-generation-procedure-2
-func GenerateKey(rand io.Reader, algId uint8, c ecc.EdDSACurve, d sign.Scheme) (priv *PrivateKey, err error) {
-	priv = new(PrivateKey)
+func GenerateKey(rand io.Reader, algId uint8, c ecc.EdDSACurve) (*PrivateKey, error) {
+	priv := new(PrivateKey)
 
 	priv.PublicKey.AlgId = algId
 	priv.PublicKey.Curve = c
-	priv.PublicKey.Mldsa = d
 
+	var err error
 	priv.PublicKey.PublicPoint, priv.SecretEc, err = c.GenerateEdDSA(rand)
 	if err != nil {
 		return nil, err
 	}
 
-	keySeed := make([]byte, d.SeedSize())
+	keySeed := make([]byte, MlDsaSeedLen)
 	if _, err = rand.Read(keySeed); err != nil {
 		return nil, err
 	}
@@ -57,37 +55,35 @@ func GenerateKey(rand io.Reader, algId uint8, c ecc.EdDSACurve, d sign.Scheme) (
 }
 
 // DeriveMlDsaKeys derives the ML-DSA keys from the provided seed and stores them inside priv.
-func (priv *PrivateKey) DeriveMlDsaKeys(seed []byte, overridePublicKey bool) (err error) {
+func (priv *PrivateKey) DeriveMlDsaKeys(seed []byte, overridePublicKey bool) error {
 	if len(seed) != MlDsaSeedLen {
 		return goerrors.New("mldsa_eddsa: ml-dsa secret seed has the wrong length")
 	}
-	priv.SecretMldsaSeed = seed
-	publicKey, privateKey := priv.PublicKey.Mldsa.DeriveKey(priv.SecretMldsaSeed)
-	if overridePublicKey {
-		priv.PublicKey.PublicMldsa = publicKey
+
+	privateKey, err := mldsa.NewPrivateKey(mldsa.MLDSA65(), seed)
+	if err != nil {
+		return err
 	}
+
+	priv.SecretMldsaSeed = seed
+	if overridePublicKey {
+		priv.PublicKey.PublicMldsa = privateKey.PublicKey()
+	}
+
 	priv.SecretMldsa = privateKey
+
 	return nil
 }
 
 // Sign generates a ML-DSA + EdDSA composite signature as specified in
 // https://www.rfc-editor.org/rfc/rfc9980.html#name-signature-generation
-func Sign(priv *PrivateKey, message []byte) (mldsaSig, ecSig []byte, err error) {
-	ecSig, err = priv.PublicKey.Curve.Sign(priv.PublicKey.PublicPoint, priv.SecretEc, message)
+func Sign(priv *PrivateKey, message []byte) ([]byte, []byte, error) {
+	ecSig, err := priv.PublicKey.Curve.Sign(priv.PublicKey.PublicPoint, priv.SecretEc, message)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	// The default signer interface does not use the hedged variant.
-	// Thus, we need to use the low level api
-	switch key := priv.SecretMldsa.(type) {
-	case *mldsa65.PrivateKey:
-		mldsaSig = make([]byte, mldsa65.SignatureSize)
-		err = mldsa65.SignTo(key, message, nil, true, mldsaSig)
-	default:
-		err = goerrors.New("mldsa_eddsa: unsupported ML-DSA private key type")
-	}
-
+	mldsaSig, err := priv.SecretMldsa.Sign(nil, message, nil)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -98,7 +94,8 @@ func Sign(priv *PrivateKey, message []byte) (mldsaSig, ecSig []byte, err error) 
 // Verify verifies a ML-DSA + EdDSA composite signature as specified in
 // https://www.rfc-editor.org/rfc/rfc9980.html#name-signature-verification
 func Verify(pub *PublicKey, message, dSig, ecSig []byte) bool {
-	return pub.Curve.Verify(pub.PublicPoint, message, ecSig) && pub.Mldsa.Verify(pub.PublicMldsa, message, dSig, nil)
+	return pub.Curve.Verify(pub.PublicPoint, message, ecSig) &&
+		mldsa.Verify(pub.PublicMldsa, message, dSig, nil) == nil
 }
 
 // Validate checks that the public key corresponds to the private key
@@ -107,7 +104,7 @@ func Validate(priv *PrivateKey) (err error) {
 		return err
 	}
 
-	if !priv.PublicMldsa.Equal(priv.SecretMldsa.Public()) {
+	if !priv.PublicMldsa.Equal(priv.SecretMldsa.PublicKey()) {
 		return errors.KeyInvalidError("mldsa_eddsa: invalid public key")
 	}
 

@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"crypto"
 	"crypto/dsa"
+	"crypto/mldsa"
 	"encoding/asn1"
 	"encoding/binary"
 	"hash"
@@ -16,7 +17,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/cloudflare/circl/sign/mldsa/mldsa65"
 	"github.com/thelemail/go-crypto/openpgp/ecdsa"
 	"github.com/thelemail/go-crypto/openpgp/ed25519"
 	"github.com/thelemail/go-crypto/openpgp/eddsa"
@@ -327,7 +327,7 @@ func (sig *Signature) parse(r io.Reader) (err error) {
 			return
 		}
 	case PubKeyAlgoMldsa65Ed25519:
-		if err = sig.parseMldsaEddsaSignature(r, 64, mldsa65.SignatureSize); err != nil {
+		if err = sig.parseMldsaEddsaSignature(r, 64, mldsa.MLDSA65SignatureSize); err != nil {
 			return
 		}
 	default:
