@@ -396,24 +396,6 @@ func SerializeEncryptedKeyAEADwithHiddenOption(w io.Writer, pub *PublicKey, ciph
 	return errors.UnsupportedError("encrypting a key to public key of type " + strconv.Itoa(int(pub.PubKeyAlgo)))
 }
 
-// SerializeEncryptedKey serializes an encrypted key packet to w that contains
-// key, encrypted to pub.
-// PKESKv6 is used if config.AEAD() is not nil.
-// If config is nil, sensible defaults will be used.
-// Deprecated: Use SerializeEncryptedKeyAEAD instead.
-func SerializeEncryptedKey(w io.Writer, pub *PublicKey, cipherFunc CipherFunction, key []byte, config *Config) error {
-	return SerializeEncryptedKeyAEAD(w, pub, cipherFunc, config.AEAD() != nil, key, config)
-}
-
-// SerializeEncryptedKeyWithHiddenOption serializes an encrypted key packet to w that contains
-// key, encrypted to pub. PKESKv6 is used if config.AEAD() is not nil.
-// The hidden option controls if the packet should be anonymous, i.e., omit key metadata.
-// If config is nil, sensible defaults will be used.
-// Deprecated: Use SerializeEncryptedKeyAEADwithHiddenOption instead.
-func SerializeEncryptedKeyWithHiddenOption(w io.Writer, pub *PublicKey, cipherFunc CipherFunction, key []byte, hidden bool, config *Config) error {
-	return SerializeEncryptedKeyAEADwithHiddenOption(w, pub, cipherFunc, config.AEAD() != nil, key, hidden, config)
-}
-
 func serializeEncryptedKeyRSA(w io.Writer, rand io.Reader, header []byte, pub *rsa.PublicKey, keyBlock []byte) error {
 	cipherText, err := rsa.EncryptPKCS1v15(rand, pub, keyBlock)
 	if err != nil {

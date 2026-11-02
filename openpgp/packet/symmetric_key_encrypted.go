@@ -178,23 +178,13 @@ func SerializeSymmetricKeyEncrypted(w io.Writer, passphrase []byte, config *Conf
 		return
 	}
 
-	err = SerializeSymmetricKeyEncryptedReuseKey(w, sessionKey, passphrase, config)
+	err = SerializeSymmetricKeyEncryptedAEADReuseKey(w, sessionKey, passphrase, config.AEAD() != nil, config)
 	if err != nil {
 		return
 	}
 
 	key = sessionKey
 	return
-}
-
-// SerializeSymmetricKeyEncryptedReuseKey serializes a symmetric key packet to w.
-// The packet contains the given session key, encrypted by a key derived from
-// the given passphrase. The returned session key must be passed to
-// SerializeSymmetricallyEncrypted.
-// If config is nil, sensible defaults will be used.
-// Deprecated: Use SerializeSymmetricKeyEncryptedAEADReuseKey instead.
-func SerializeSymmetricKeyEncryptedReuseKey(w io.Writer, sessionKey []byte, passphrase []byte, config *Config) (err error) {
-	return SerializeSymmetricKeyEncryptedAEADReuseKey(w, sessionKey, passphrase, config.AEAD() != nil, config)
 }
 
 // SerializeSymmetricKeyEncryptedAEADReuseKey serializes a symmetric key packet to w.
