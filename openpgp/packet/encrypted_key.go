@@ -100,7 +100,7 @@ func (e *EncryptedKey) parse(r io.Reader) (err error) {
 	e.Algo = PublicKeyAlgorithm(buf[0])
 	var cipherFunction byte
 	switch e.Algo {
-	case PubKeyAlgoRSA, PubKeyAlgoRSAEncryptOnly:
+	case PubKeyAlgoRSA:
 		e.encryptedMPI1 = new(encoding.MPI)
 		if _, err = e.encryptedMPI1.ReadFrom(r); err != nil {
 			return
@@ -170,7 +170,7 @@ func (e *EncryptedKey) Decrypt(priv *PrivateKey, config *Config) error {
 	// TODO(agl): use session key decryption routines here to avoid
 	// padding oracle attacks.
 	switch priv.PubKeyAlgo {
-	case PubKeyAlgoRSA, PubKeyAlgoRSAEncryptOnly:
+	case PubKeyAlgoRSA:
 		// Supports both *rsa.PrivateKey and crypto.Decrypter
 		k := priv.PrivateKey.(crypto.Decrypter)
 		b, err = k.Decrypt(config.Random(), padToKeySize(k.Public().(*rsa.PublicKey), e.encryptedMPI1.Bytes()), nil)
@@ -197,7 +197,7 @@ func (e *EncryptedKey) Decrypt(priv *PrivateKey, config *Config) error {
 
 	var key []byte
 	switch priv.PubKeyAlgo {
-	case PubKeyAlgoRSA, PubKeyAlgoRSAEncryptOnly, PubKeyAlgoElGamal, PubKeyAlgoECDH:
+	case PubKeyAlgoRSA, PubKeyAlgoElGamal, PubKeyAlgoECDH:
 		keyOffset := 0
 		if e.Version < 6 {
 			if len(b) == 0 {
@@ -234,7 +234,7 @@ func (e *EncryptedKey) Decrypt(priv *PrivateKey, config *Config) error {
 func (e *EncryptedKey) Serialize(w io.Writer) error {
 	var encodedLength int
 	switch e.Algo {
-	case PubKeyAlgoRSA, PubKeyAlgoRSAEncryptOnly:
+	case PubKeyAlgoRSA:
 		encodedLength = int(e.encryptedMPI1.EncodedLength())
 	case PubKeyAlgoElGamal:
 		encodedLength = int(e.encryptedMPI1.EncodedLength()) + int(e.encryptedMPI2.EncodedLength())
@@ -296,7 +296,7 @@ func (e *EncryptedKey) Serialize(w io.Writer) error {
 	}
 
 	switch e.Algo {
-	case PubKeyAlgoRSA, PubKeyAlgoRSAEncryptOnly:
+	case PubKeyAlgoRSA:
 		_, err := w.Write(e.encryptedMPI1.EncodedBytes())
 		return err
 	case PubKeyAlgoElGamal:
@@ -392,7 +392,7 @@ func SerializeEncryptedKeyAEADwithHiddenOption(w io.Writer, pub *PublicKey, ciph
 
 	var keyBlock []byte
 	switch pub.PubKeyAlgo {
-	case PubKeyAlgoRSA, PubKeyAlgoRSAEncryptOnly, PubKeyAlgoElGamal, PubKeyAlgoECDH:
+	case PubKeyAlgoRSA, PubKeyAlgoElGamal, PubKeyAlgoECDH:
 		lenKeyBlock := len(key) + 2
 		if version < 6 {
 			lenKeyBlock += 1 // cipher type included
@@ -410,7 +410,7 @@ func SerializeEncryptedKeyAEADwithHiddenOption(w io.Writer, pub *PublicKey, ciph
 	}
 
 	switch pub.PubKeyAlgo {
-	case PubKeyAlgoRSA, PubKeyAlgoRSAEncryptOnly:
+	case PubKeyAlgoRSA:
 		return serializeEncryptedKeyRSA(w, config.Random(), buf[:lenHeaderWritten], pub.PublicKey.(*rsa.PublicKey), keyBlock)
 	case PubKeyAlgoElGamal:
 		return serializeEncryptedKeyElGamal(w, config.Random(), buf[:lenHeaderWritten], pub.PublicKey.(*elgamal.PublicKey), keyBlock)
@@ -420,7 +420,7 @@ func SerializeEncryptedKeyAEADwithHiddenOption(w io.Writer, pub *PublicKey, ciph
 		return serializeEncryptedKeyX25519(w, config.Random(), buf[:lenHeaderWritten], pub.PublicKey.(*x25519.PublicKey), keyBlock, byte(cipherFunc), version)
 	case PubKeyAlgoMlkem768X25519:
 		return serializeEncryptedKeyMlkem(w, config.Random(), buf[:lenHeaderWritten], pub.PublicKey.(*mlkem_ecdh.PublicKey), keyBlock, byte(cipherFunc), version)
-	case PubKeyAlgoDSA, PubKeyAlgoRSASignOnly:
+	case PubKeyAlgoDSA:
 		return errors.InvalidArgumentError("cannot encrypt to public key of type " + strconv.Itoa(int(pub.PubKeyAlgo)))
 	}
 

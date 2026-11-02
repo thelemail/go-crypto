@@ -193,7 +193,7 @@ func (sig *Signature) parse(r io.Reader) (err error) {
 	sig.SigType = SignatureType(buf[0])
 	sig.PubKeyAlgo = PublicKeyAlgorithm(buf[1])
 	switch sig.PubKeyAlgo {
-	case PubKeyAlgoRSA, PubKeyAlgoRSASignOnly, PubKeyAlgoDSA,
+	case PubKeyAlgoRSA, PubKeyAlgoDSA,
 		PubKeyAlgoECDSA, PubKeyAlgoEdDSA,
 		PubKeyAlgoEd25519, PubKeyAlgoMldsa65Ed25519:
 	default:
@@ -292,7 +292,7 @@ func (sig *Signature) parse(r io.Reader) (err error) {
 	}
 
 	switch sig.PubKeyAlgo {
-	case PubKeyAlgoRSA, PubKeyAlgoRSASignOnly:
+	case PubKeyAlgoRSA:
 		sig.RSASignature = new(encoding.MPI)
 		_, err = sig.RSASignature.ReadFrom(r)
 	case PubKeyAlgoDSA:
@@ -949,7 +949,7 @@ func (sig *Signature) Sign(h hash.Hash, priv *PrivateKey, config *Config) (err e
 		return
 	}
 	switch priv.PubKeyAlgo {
-	case PubKeyAlgoRSA, PubKeyAlgoRSASignOnly:
+	case PubKeyAlgoRSA:
 		// supports both *rsa.PrivateKey and crypto.Signer
 		sigdata, err := priv.PrivateKey.(crypto.Signer).Sign(config.Random(), digest, sig.Hash)
 		if err == nil {
@@ -1131,7 +1131,7 @@ func (sig *Signature) Serialize(w io.Writer) (err error) {
 
 	sigLength := 0
 	switch sig.PubKeyAlgo {
-	case PubKeyAlgoRSA, PubKeyAlgoRSASignOnly:
+	case PubKeyAlgoRSA:
 		sigLength = int(sig.RSASignature.EncodedLength())
 	case PubKeyAlgoDSA:
 		sigLength = int(sig.DSASigR.EncodedLength())
@@ -1232,7 +1232,7 @@ func (sig *Signature) serializeBody(w io.Writer) (err error) {
 	}
 
 	switch sig.PubKeyAlgo {
-	case PubKeyAlgoRSA, PubKeyAlgoRSASignOnly:
+	case PubKeyAlgoRSA:
 		_, err = w.Write(sig.RSASignature.EncodedBytes())
 	case PubKeyAlgoDSA:
 		if _, err = w.Write(sig.DSASigR.EncodedBytes()); err != nil {

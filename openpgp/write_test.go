@@ -727,7 +727,7 @@ ParsePackets:
 		case *packet.EncryptedKey:
 			// This packet contains the decryption key encrypted to a public key.
 			switch p.Algo {
-			case packet.PubKeyAlgoRSA, packet.PubKeyAlgoRSAEncryptOnly, packet.PubKeyAlgoElGamal, packet.PubKeyAlgoECDH,
+			case packet.PubKeyAlgoRSA, packet.PubKeyAlgoElGamal, packet.PubKeyAlgoECDH,
 				packet.PubKeyAlgoMlkem768X25519:
 				break
 			default:

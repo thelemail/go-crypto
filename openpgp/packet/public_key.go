@@ -253,7 +253,7 @@ func (pk *PublicKey) parse(r io.Reader) (err error) {
 	pk.PubKeyAlgo = PublicKeyAlgorithm(buf[5])
 	// Ignore four-octet length
 	switch pk.PubKeyAlgo {
-	case PubKeyAlgoRSA, PubKeyAlgoRSAEncryptOnly, PubKeyAlgoRSASignOnly:
+	case PubKeyAlgoRSA:
 		err = pk.parseRSA(r)
 	case PubKeyAlgoDSA:
 		err = pk.parseDSA(r)
@@ -689,7 +689,7 @@ func (pk *PublicKey) Serialize(w io.Writer) (err error) {
 func (pk *PublicKey) algorithmSpecificByteCount() uint32 {
 	length := uint32(0)
 	switch pk.PubKeyAlgo {
-	case PubKeyAlgoRSA, PubKeyAlgoRSAEncryptOnly, PubKeyAlgoRSASignOnly:
+	case PubKeyAlgoRSA:
 		length += uint32(pk.n.EncodedLength())
 		length += uint32(pk.e.EncodedLength())
 	case PubKeyAlgoDSA:
@@ -749,7 +749,7 @@ func (pk *PublicKey) serializeWithoutHeaders(w io.Writer) (err error) {
 	}
 
 	switch pk.PubKeyAlgo {
-	case PubKeyAlgoRSA, PubKeyAlgoRSAEncryptOnly, PubKeyAlgoRSASignOnly:
+	case PubKeyAlgoRSA:
 		if _, err = w.Write(pk.n.EncodedBytes()); err != nil {
 			return
 		}
@@ -861,7 +861,7 @@ func (pk *PublicKey) VerifySignature(signed hash.Hash, sig *Signature) (err erro
 	}
 
 	switch pk.PubKeyAlgo {
-	case PubKeyAlgoRSA, PubKeyAlgoRSASignOnly:
+	case PubKeyAlgoRSA:
 		rsaPublicKey, _ := pk.PublicKey.(*rsa.PublicKey)
 		err = rsa.VerifyPKCS1v15(rsaPublicKey, sig.Hash, hashBytes, padToKeySize(rsaPublicKey, sig.RSASignature.Bytes()))
 		if err != nil {
@@ -1109,7 +1109,7 @@ func (pk *PublicKey) KeyIdShortString() string {
 // BitLength returns the bit length for the given public key.
 func (pk *PublicKey) BitLength() (bitLength uint16, err error) {
 	switch pk.PubKeyAlgo {
-	case PubKeyAlgoRSA, PubKeyAlgoRSAEncryptOnly, PubKeyAlgoRSASignOnly:
+	case PubKeyAlgoRSA:
 		bitLength = pk.n.BitLength()
 	case PubKeyAlgoDSA:
 		bitLength = pk.p.BitLength()

@@ -811,7 +811,7 @@ func (pk *PrivateKey) serializePrivateKey(w io.Writer) (err error) {
 
 func (pk *PrivateKey) parsePrivateKey(data []byte) (err error) {
 	switch pk.PublicKey.PubKeyAlgo {
-	case PubKeyAlgoRSA, PubKeyAlgoRSASignOnly, PubKeyAlgoRSAEncryptOnly:
+	case PubKeyAlgoRSA:
 		return pk.parseRSAPrivateKey(data)
 	case PubKeyAlgoDSA:
 		return pk.parseDSAPrivateKey(data)
