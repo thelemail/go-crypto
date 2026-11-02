@@ -322,7 +322,7 @@ const (
 	packetTypePublicKey                                packetType = 6
 	packetTypePrivateSubkey                            packetType = 7
 	packetTypeCompressed                               packetType = 8
-	packetTypeSymmetricallyEncrypted                   packetType = 9
+	packetTypeSymmetricallyEncrypted                   packetType = 9 // Recognized but unsupported
 	packetTypeMarker                                   packetType = 10
 	packetTypeLiteralData                              packetType = 11
 	packetTypeTrust                                    packetType = 12
@@ -368,8 +368,6 @@ func Read(r io.Reader) (p Packet, err error) {
 		p = &PublicKey{IsSubkey: isSubkey}
 	case packetTypeCompressed:
 		p = new(Compressed)
-	case packetTypeSymmetricallyEncrypted:
-		p = new(SymmetricallyEncrypted)
 	case packetTypeLiteralData:
 		p = new(LiteralData)
 	case packetTypeUserId:
@@ -377,9 +375,7 @@ func Read(r io.Reader) (p Packet, err error) {
 	case packetTypeUserAttribute:
 		p = new(UserAttribute)
 	case packetTypeSymmetricallyEncryptedIntegrityProtected:
-		se := new(SymmetricallyEncrypted)
-		se.IntegrityProtected = true
-		p = se
+		p = new(SymmetricallyEncrypted)
 	case packetTypePadding:
 		p = Padding(len)
 	case packetTypeMarker:
@@ -430,17 +426,12 @@ func ReadWithCheck(r io.Reader, sequence *SequenceVerifier) (p Packet, msgErr er
 	case packetTypeCompressed:
 		msgErr = sequence.Next(CompSymbol)
 		p = new(Compressed)
-	case packetTypeSymmetricallyEncrypted:
-		msgErr = sequence.Next(EncSymbol)
-		p = new(SymmetricallyEncrypted)
 	case packetTypeLiteralData:
 		msgErr = sequence.Next(LDSymbol)
 		p = new(LiteralData)
 	case packetTypeSymmetricallyEncryptedIntegrityProtected:
 		msgErr = sequence.Next(EncSymbol)
-		se := new(SymmetricallyEncrypted)
-		se.IntegrityProtected = true
-		p = se
+		p = new(SymmetricallyEncrypted)
 	case packetTypePadding:
 		p = Padding(len)
 	case packetTypeMarker:

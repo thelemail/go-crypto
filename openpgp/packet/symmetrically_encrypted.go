@@ -16,9 +16,8 @@ const aeadSaltSize = 32
 // encrypted Contents will consist of more OpenPGP packets. See RFC 4880,
 // sections 5.7 and 5.13.
 type SymmetricallyEncrypted struct {
-	Version            int
-	Contents           io.Reader // contains tag for version 2
-	IntegrityProtected bool      // If true it is type 18 (with MDC or AEAD). False is packet type 9
+	Version  int
+	Contents io.Reader // contains tag for version 2
 
 	// Specific to version 1
 	prefix []byte
@@ -36,26 +35,25 @@ const (
 )
 
 func (se *SymmetricallyEncrypted) parse(r io.Reader) error {
-	if se.IntegrityProtected {
-		// See RFC 4880, section 5.13.
-		var buf [1]byte
-		_, err := readFull(r, buf[:])
-		if err != nil {
+	// See RFC 4880, section 5.13.
+	var buf [1]byte
+	_, err := readFull(r, buf[:])
+	if err != nil {
+		return err
+	}
+
+	switch buf[0] {
+	case symmetricallyEncryptedVersionMdc:
+		se.Version = symmetricallyEncryptedVersionMdc
+	case symmetricallyEncryptedVersionAead:
+		se.Version = symmetricallyEncryptedVersionAead
+		if err := se.parseAead(r); err != nil {
 			return err
 		}
-
-		switch buf[0] {
-		case symmetricallyEncryptedVersionMdc:
-			se.Version = symmetricallyEncryptedVersionMdc
-		case symmetricallyEncryptedVersionAead:
-			se.Version = symmetricallyEncryptedVersionAead
-			if err := se.parseAead(r); err != nil {
-				return err
-			}
-		default:
-			return errors.UnsupportedError("unknown SymmetricallyEncrypted version")
-		}
+	default:
+		return errors.UnsupportedError("unknown SymmetricallyEncrypted version")
 	}
+
 	se.Contents = r
 	return nil
 }

@@ -8,7 +8,6 @@ import (
 	"bytes"
 	"encoding/hex"
 	"io"
-	"io/ioutil"
 	"math/bits"
 	"os"
 	"strings"
@@ -734,43 +733,18 @@ func TestMessageWithoutMdc(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	armoredMessageWithoutMdc, err := ioutil.ReadFile("test_data/sym-message-without-mdc.asc")
+	armoredMessageWithoutMdc, err := os.ReadFile("test_data/sym-message-without-mdc.asc")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	t.Run("fails with InsecureAllowUnauthenticatedMessages disabled", func(t *testing.T) {
-		messageWithoutMdc, err := armor.Decode(bytes.NewReader(armoredMessageWithoutMdc))
-		if err != nil {
-			t.Fatal(err)
-		}
+	messageWithoutMdc, err := armor.Decode(bytes.NewReader(armoredMessageWithoutMdc))
+	if err != nil {
+		t.Fatal(err)
+	}
 
-		_, err = ReadMessage(messageWithoutMdc.Body, el, nil, nil)
-		if err == nil {
-			t.Fatal("reading the message should have failed")
-		}
-	})
-
-	t.Run("succeeds with InsecureAllowUnauthenticatedMessages enabled", func(t *testing.T) {
-		messageWithoutMdc, err := armor.Decode(bytes.NewReader(armoredMessageWithoutMdc))
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		md, err := ReadMessage(messageWithoutMdc.Body, el, nil, &packet.Config{
-			InsecureAllowUnauthenticatedMessages: true,
-		})
-		if err != nil {
-			t.Fatal("reading the message should have worked")
-		}
-
-		b, err := io.ReadAll(md.UnverifiedBody)
-		if err != nil {
-			t.Fatal("reading the message should have worked")
-		}
-
-		if !bytes.Equal(b, []byte("message without mdc\n")) {
-			t.Error("unexpected message content")
-		}
-	})
+	_, err = ReadMessage(messageWithoutMdc.Body, el, nil, nil)
+	if tag, ok := err.(errors.CriticalUnknownPacketTypeError); !ok || tag != 9 {
+		t.Fatalf("want critical unknown packet type 9, got %v", err)
+	}
 }

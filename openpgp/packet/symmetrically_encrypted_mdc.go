@@ -15,19 +15,6 @@ import (
 	"github.com/thelemail/go-crypto/openpgp/errors"
 )
 
-// seMdcReader wraps an io.Reader with a no-op Close method.
-type seMdcReader struct {
-	in io.Reader
-}
-
-func (ser seMdcReader) Read(buf []byte) (int, error) {
-	return ser.in.Read(buf)
-}
-
-func (ser seMdcReader) Close() error {
-	return nil
-}
-
 func (se *SymmetricallyEncrypted) decryptMdc(c CipherFunction, key []byte) (io.ReadCloser, error) {
 	if !c.IsSupported() {
 		return nil, errors.UnsupportedError("unsupported cipher: " + strconv.Itoa(int(c)))
@@ -47,25 +34,14 @@ func (se *SymmetricallyEncrypted) decryptMdc(c CipherFunction, key []byte) (io.R
 		return nil, errors.InvalidArgumentError("can't try ciphers with different block lengths")
 	}
 
-	ocfbResync := OCFBResync
-	if se.IntegrityProtected {
-		// MDC packets use a different form of OCFB mode.
-		ocfbResync = OCFBNoResync
-	}
-
-	s := NewOCFBDecrypter(c.new(key), se.prefix, ocfbResync)
+	s := NewOCFBDecrypter(c.new(key), se.prefix)
 
 	plaintext := cipher.StreamReader{S: s, R: se.Contents}
 
-	if se.IntegrityProtected {
-		// IntegrityProtected packets have an embedded hash that we need to check.
-		h := sha1.New()
-		h.Write(se.prefix)
-		return &seMDCReader{in: plaintext, h: h}, nil
-	}
+	h := sha1.New()
+	h.Write(se.prefix)
 
-	// Otherwise, we just need to wrap plaintext so that it's a valid ReadCloser.
-	return seMdcReader{plaintext}, nil
+	return &seMDCReader{in: plaintext, h: h}, nil
 }
 
 const mdcTrailerSize = 1 /* tag byte */ + 1 /* length byte */ + sha1.Size
@@ -241,7 +217,7 @@ func serializeSymmetricallyEncryptedMdc(ciphertext io.WriteCloser, c CipherFunct
 	if err != nil {
 		return nil, err
 	}
-	s, prefix := NewOCFBEncrypter(block, iv, OCFBNoResync)
+	s, prefix := NewOCFBEncrypter(block, iv)
 	_, err = ciphertext.Write(prefix)
 	if err != nil {
 		return

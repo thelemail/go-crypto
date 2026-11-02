@@ -16,22 +16,11 @@ type ocfbEncrypter struct {
 	outUsed int
 }
 
-// An OCFBResyncOption determines if the "resynchronization step" of OCFB is
-// performed.
-type OCFBResyncOption bool
-
-const (
-	OCFBResync   OCFBResyncOption = true
-	OCFBNoResync OCFBResyncOption = false
-)
-
 // NewOCFBEncrypter returns a cipher.Stream which encrypts data with OpenPGP's
 // cipher feedback mode using the given cipher.Block, and an initial amount of
 // ciphertext.  randData must be random bytes and be the same length as the
-// cipher.Block's block size. Resync determines if the "resynchronization step"
-// from RFC 4880, 13.9 step 7 is performed. Different parts of OpenPGP vary on
-// this point.
-func NewOCFBEncrypter(block cipher.Block, randData []byte, resync OCFBResyncOption) (cipher.Stream, []byte) {
+// cipher.Block's block size.
+func NewOCFBEncrypter(block cipher.Block, randData []byte) (cipher.Stream, []byte) {
 	blockSize := block.BlockSize()
 	if len(randData) != blockSize {
 		return nil, nil
@@ -53,13 +42,10 @@ func NewOCFBEncrypter(block cipher.Block, randData []byte, resync OCFBResyncOpti
 	prefix[blockSize] = x.fre[0] ^ randData[blockSize-2]
 	prefix[blockSize+1] = x.fre[1] ^ randData[blockSize-1]
 
-	if resync {
-		block.Encrypt(x.fre, prefix[2:])
-	} else {
-		x.fre[0] = prefix[blockSize]
-		x.fre[1] = prefix[blockSize+1]
-		x.outUsed = 2
-	}
+	x.fre[0] = prefix[blockSize]
+	x.fre[1] = prefix[blockSize+1]
+	x.outUsed = 2
+
 	return x, prefix
 }
 
@@ -86,9 +72,8 @@ type ocfbDecrypter struct {
 // cipher feedback mode using the given cipher.Block. Prefix must be the first
 // blockSize + 2 bytes of the ciphertext, where blockSize is the cipher.Block's
 // block size. On successful exit, blockSize+2 bytes of decrypted data are written into
-// prefix. Resync determines if the "resynchronization step" from RFC 4880,
-// 13.9 step 7 is performed. Different parts of OpenPGP vary on this point.
-func NewOCFBDecrypter(block cipher.Block, prefix []byte, resync OCFBResyncOption) cipher.Stream {
+// prefix.
+func NewOCFBDecrypter(block cipher.Block, prefix []byte) cipher.Stream {
 	blockSize := block.BlockSize()
 	if len(prefix) != blockSize+2 {
 		return nil
@@ -111,14 +96,12 @@ func NewOCFBDecrypter(block cipher.Block, prefix []byte, resync OCFBResyncOption
 	prefixCopy[blockSize] ^= x.fre[0]
 	prefixCopy[blockSize+1] ^= x.fre[1]
 
-	if resync {
-		block.Encrypt(x.fre, prefix[2:])
-	} else {
-		x.fre[0] = prefix[blockSize]
-		x.fre[1] = prefix[blockSize+1]
-		x.outUsed = 2
-	}
+	x.fre[0] = prefix[blockSize]
+	x.fre[1] = prefix[blockSize+1]
+	x.outUsed = 2
+
 	copy(prefix, prefixCopy)
+
 	return x
 }
 

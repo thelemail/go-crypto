@@ -18,8 +18,6 @@ var (
 	ErrAEADTagVerification error = DecryptWithSessionKeyError("AEAD tag verification failed")
 	// ErrMDCHashMismatch
 	ErrMDCHashMismatch error = SignatureError("MDC hash mismatch")
-	// ErrMDCMissing
-	ErrMDCMissing error = SignatureError("MDC packet not found")
 )
 
 // A StructuralError is returned when OpenPGP data is found to be syntactically

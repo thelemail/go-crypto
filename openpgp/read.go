@@ -106,8 +106,7 @@ func ReadMessage(r io.Reader, keyring KeyRing, prompt PromptFunction, config *pa
 	// containing an encrypted decryption key. The decryption key is either
 	// encrypted to a public key, or with a passphrase. This loop
 	// collects these packets.
-ParsePackets:
-	for {
+	for edp == nil {
 		p, err = packets.Next()
 		if err != nil {
 			return nil, err
@@ -139,11 +138,7 @@ ParsePackets:
 				}
 			}
 		case *packet.SymmetricallyEncrypted:
-			if !p.IntegrityProtected && !config.AllowUnauthenticatedMessages() {
-				return nil, errors.UnsupportedError("message is not integrity protected")
-			}
 			edp = p
-			break ParsePackets
 		case *packet.Compressed, *packet.LiteralData, *packet.OnePassSignature:
 			// This message isn't encrypted.
 			if len(symKeys) != 0 || len(pubKeys) != 0 {
