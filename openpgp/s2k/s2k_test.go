@@ -10,12 +10,12 @@ import (
 	"crypto/rand"
 	"crypto/sha1"
 	_ "crypto/sha256"
+	_ "crypto/sha3"
 	_ "crypto/sha512"
 	"encoding/hex"
 	"testing"
 
 	_ "golang.org/x/crypto/ripemd160"
-	_ "golang.org/x/crypto/sha3"
 )
 
 var saltedTests = []struct {

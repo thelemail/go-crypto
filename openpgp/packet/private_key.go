@@ -9,6 +9,7 @@ import (
 	"crypto"
 	"crypto/cipher"
 	"crypto/dsa"
+	"crypto/hkdf"
 	"crypto/rsa"
 	"crypto/sha1"
 	"crypto/sha256"
@@ -31,7 +32,6 @@ import (
 	"github.com/thelemail/go-crypto/openpgp/mlkem_ecdh"
 	"github.com/thelemail/go-crypto/openpgp/s2k"
 	"github.com/thelemail/go-crypto/openpgp/x25519"
-	"golang.org/x/crypto/hkdf"
 )
 
 // PrivateKey represents a possibly encrypted private key. See RFC 4880,
@@ -1056,9 +1056,10 @@ func (pk *PrivateKey) applyHKDF(inputKey []byte) []byte {
 		packetByte = 0xc5
 	}
 	associatedData := []byte{packetByte, byte(pk.Version), byte(pk.cipher), byte(pk.aead)}
-	hkdfReader := hkdf.New(sha256.New, inputKey, []byte{}, associatedData)
-	encryptionKey := make([]byte, pk.cipher.KeySize())
-	_, _ = readFull(hkdfReader, encryptionKey)
+
+	// it can't fail the error happens only above 8160 bytes, this asks at most 32
+	encryptionKey, _ := hkdf.Key(sha256.New, inputKey, nil, string(associatedData), pk.cipher.KeySize())
+
 	return encryptionKey
 }
 

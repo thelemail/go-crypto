@@ -7,13 +7,13 @@ package packet
 import (
 	"bytes"
 	"crypto/cipher"
+	"crypto/hkdf"
 	"crypto/sha256"
 	"io"
 	"strconv"
 
 	"github.com/thelemail/go-crypto/openpgp/errors"
 	"github.com/thelemail/go-crypto/openpgp/s2k"
-	"golang.org/x/crypto/hkdf"
 )
 
 // This is the largest session key that we'll support. Since at most 256-bit cipher
@@ -310,11 +310,11 @@ func SerializeSymmetricKeyEncryptedAEADReuseKey(w io.Writer, sessionKey []byte, 
 	return
 }
 
-func getEncryptedKeyAeadInstance(c CipherFunction, mode AEADMode, inputKey, associatedData []byte, version int) (aead cipher.AEAD, err error) {
-	hkdfReader := hkdf.New(sha256.New, inputKey, []byte{}, associatedData)
-
-	encryptionKey := make([]byte, c.KeySize())
-	_, _ = readFull(hkdfReader, encryptionKey)
+func getEncryptedKeyAeadInstance(c CipherFunction, mode AEADMode, inputKey, associatedData []byte, version int) (cipher.AEAD, error) {
+	encryptionKey, err := hkdf.Key(sha256.New, inputKey, nil, string(associatedData), c.KeySize())
+	if err != nil {
+		return nil, err
+	}
 
 	blockCipher := c.new(encryptionKey)
 

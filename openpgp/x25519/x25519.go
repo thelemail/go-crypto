@@ -1,6 +1,7 @@
 package x25519
 
 import (
+	"crypto/hkdf"
 	"crypto/sha256"
 	"crypto/subtle"
 	"io"
@@ -8,7 +9,6 @@ import (
 	x25519lib "github.com/cloudflare/circl/dh/x25519"
 	"github.com/thelemail/go-crypto/openpgp/aes/keywrap"
 	"github.com/thelemail/go-crypto/openpgp/errors"
-	"golang.org/x/crypto/hkdf"
 )
 
 const (
@@ -137,9 +137,10 @@ func applyHKDF(ephemeralPublicKey []byte, publicKey []byte, sharedSecret []byte)
 	subtle.ConstantTimeCopy(1, inputKey[:KeySize], ephemeralPublicKey)
 	subtle.ConstantTimeCopy(1, inputKey[KeySize:2*KeySize], publicKey)
 	subtle.ConstantTimeCopy(1, inputKey[2*KeySize:], sharedSecret)
-	hkdfReader := hkdf.New(sha256.New, inputKey, []byte{}, []byte(hkdfInfo))
-	encryptionKey := make([]byte, aes128KeySize)
-	_, _ = io.ReadFull(hkdfReader, encryptionKey)
+
+	// it can't fail the error happens only above 8160 bytes, this asks at most 32
+	encryptionKey, _ := hkdf.Key(sha256.New, inputKey, nil, hkdfInfo, aes128KeySize)
+
 	return encryptionKey
 }
 

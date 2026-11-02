@@ -3,11 +3,10 @@
 package mlkem_ecdh
 
 import (
+	"crypto/sha3"
 	goerrors "errors"
 	"fmt"
 	"io"
-
-	"golang.org/x/crypto/sha3"
 
 	"github.com/cloudflare/circl/kem"
 	"github.com/thelemail/go-crypto/openpgp/aes/keywrap"

@@ -6,13 +6,13 @@ package packet
 
 import (
 	"crypto/cipher"
+	"crypto/hkdf"
 	"crypto/sha256"
 	"fmt"
 	"io"
 	"strconv"
 
 	"github.com/thelemail/go-crypto/openpgp/errors"
-	"golang.org/x/crypto/hkdf"
 )
 
 // parseAead parses a V2 SEIPD packet (AEAD) as specified in
@@ -157,22 +157,24 @@ func serializeSymmetricallyEncryptedAead(ciphertext io.WriteCloser, cipherSuite 
 	}, nil
 }
 
-func getSymmetricallyEncryptedAeadInstance(c CipherFunction, mode AEADMode, inputKey, salt, associatedData []byte) (aead cipher.AEAD, nonce []byte, err error) {
-	hkdfReader := hkdf.New(sha256.New, inputKey, salt, associatedData)
+func getSymmetricallyEncryptedAeadInstance(c CipherFunction, mode AEADMode, inputKey, salt, associatedData []byte) (cipher.AEAD, []byte, error) {
+	keySize := c.KeySize()
+	nonce := make([]byte, mode.IvLength())
+	ivSize := len(nonce) - 8
 
-	encryptionKey := make([]byte, c.KeySize())
-	_, _ = readFull(hkdfReader, encryptionKey)
-
-	blockCipher := c.new(encryptionKey)
-	aead, err = mode.new(blockCipher)
+	keyMaterial, err := hkdf.Key(sha256.New, inputKey, salt, string(associatedData), keySize+ivSize)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	nonce = make([]byte, mode.IvLength())
+	blockCipher := c.new(keyMaterial[:keySize])
+	aead, err := mode.new(blockCipher)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	// Last 64 bits of nonce are the counter
-	_, _ = readFull(hkdfReader, nonce[:len(nonce)-8])
+	copy(nonce, keyMaterial[keySize:])
 
-	return
+	return aead, nonce, nil
 }

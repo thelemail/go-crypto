@@ -8,6 +8,7 @@ package openpgp // import "github.com/thelemail/go-crypto/openpgp"
 import (
 	"crypto"
 	_ "crypto/sha256"
+	_ "crypto/sha3"
 	_ "crypto/sha512"
 	"hash"
 	"io"
@@ -17,7 +18,6 @@ import (
 	"github.com/thelemail/go-crypto/openpgp/errors"
 	"github.com/thelemail/go-crypto/openpgp/internal/algorithm"
 	"github.com/thelemail/go-crypto/openpgp/packet"
-	_ "golang.org/x/crypto/sha3"
 )
 
 // SignatureType is the armor type for a PGP signature.
