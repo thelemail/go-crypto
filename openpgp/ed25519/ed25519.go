@@ -3,10 +3,10 @@
 package ed25519
 
 import (
+	ed25519lib "crypto/ed25519"
 	"crypto/subtle"
 	"io"
 
-	ed25519lib "github.com/cloudflare/circl/sign/ed25519"
 	"github.com/thelemail/go-crypto/openpgp/errors"
 )
 
@@ -82,6 +82,10 @@ func Sign(priv *PrivateKey, message []byte) ([]byte, error) {
 
 // Verify verifies an ed25519 signature.
 func Verify(pub *PublicKey, message []byte, signature []byte) bool {
+	if len(pub.Point) != PublicKeySize {
+		return false
+	}
+
 	return ed25519lib.Verify(pub.Point, message, signature)
 }
 

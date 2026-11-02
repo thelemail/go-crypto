@@ -3,10 +3,10 @@ package ecc
 
 import (
 	"bytes"
+	ed25519lib "crypto/ed25519"
 	"crypto/subtle"
 	"io"
 
-	ed25519lib "github.com/cloudflare/circl/sign/ed25519"
 	"github.com/thelemail/go-crypto/openpgp/errors"
 )
 
@@ -107,6 +107,10 @@ func (c *ed25519) Sign(publicKey, privateKey, message []byte) (sig []byte, err e
 }
 
 func (c *ed25519) Verify(publicKey, message, sig []byte) bool {
+	if len(publicKey) != ed25519lib.PublicKeySize {
+		return false
+	}
+
 	return ed25519lib.Verify(publicKey, message, sig)
 }
 
