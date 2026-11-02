@@ -3,7 +3,7 @@ package openpgp
 import (
 	"bytes"
 	"crypto/rand"
-	"io/ioutil"
+	"io"
 	"testing"
 	"time"
 
@@ -151,7 +151,7 @@ func benchmarkDecrypt(b *testing.B, keys []*Entity, plaintext []byte, encryptedM
 			continue
 		}
 
-		decrypted, err := ioutil.ReadAll(md.UnverifiedBody)
+		decrypted, err := io.ReadAll(md.UnverifiedBody)
 		if err != nil {
 			b.Errorf("Error reading encrypted content: %s", err)
 			continue

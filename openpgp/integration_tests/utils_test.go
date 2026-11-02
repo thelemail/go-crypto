@@ -18,7 +18,6 @@ import (
 // given settings, associates a random message for each key. It returns the
 // test vectors.
 func generateFreshTestVectors(num int) (vectors []testVector, err error) {
-	mathrand.Seed(time.Now().UTC().UnixNano())
 	for i := 0; i < num; i++ {
 		config := randConfig()
 		// Sample random email, comment, password and message

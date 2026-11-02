@@ -11,7 +11,6 @@ import (
 	"encoding/hex"
 	mathrand "math/rand"
 	"testing"
-	"time"
 )
 
 const (
@@ -381,7 +380,6 @@ func TestEncryptDecryptGoTestVectors(t *testing.T) {
 }
 
 func TestEncryptDecryptVectorsWithPreviousDataRandomizeSlow(t *testing.T) {
-	mathrand.Seed(time.Now().UnixNano())
 	allowedKeyLengths := []int{16, 24, 32}
 	for _, keyLength := range allowedKeyLengths {
 		pt := make([]byte, mathrand.Intn(maxLength))
