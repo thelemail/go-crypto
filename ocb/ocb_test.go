@@ -138,7 +138,7 @@ func TestEncryptDecryptRFC7253TestVectors(t *testing.T) {
 			%X`, ct, targetCt)
 		}
 		// Encrypt reusing buffer
-		pt := make([]byte, len(targetPt) + ocbInstance.Overhead())
+		pt := make([]byte, len(targetPt)+ocbInstance.Overhead())
 		copy(pt, targetPt)
 		ct = ocbInstance.Seal(pt[:0], nonce, pt[:len(targetPt)], adata)
 		if !bytes.Equal(ct, targetCt) {
@@ -212,7 +212,7 @@ func TestEncryptDecryptRFC7253TagLen96(t *testing.T) {
 		Want:
 		%X`, ct, targetCt)
 	}
-	pt := make([]byte, len(targetPt) + ocbInstance.Overhead())
+	pt := make([]byte, len(targetPt)+ocbInstance.Overhead())
 	copy(pt, targetPt)
 	ct = ocbInstance.Seal(pt[:0], nonce, pt[:len(targetPt)], adata)
 	if !bytes.Equal(ct, targetCt) {
@@ -328,7 +328,7 @@ func TestEncryptDecryptGoTestVectors(t *testing.T) {
 		}
 
 		// Encrypt reusing buffer
-		pt := make([]byte, len(targetPt) + ocbInstance.Overhead())
+		pt := make([]byte, len(targetPt)+ocbInstance.Overhead())
 		copy(pt, targetPt)
 		ct = ocbInstance.Seal(pt[:0], nonce, pt[:len(targetPt)], adata)
 		if !bytes.Equal(ct, targetCt) {
