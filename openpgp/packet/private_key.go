@@ -423,7 +423,7 @@ func serializeRSAPrivateKey(w io.Writer, priv *rsa.PrivateKey) error {
 }
 
 func serializeECDSAPrivateKey(w io.Writer, priv *ecdsa.PrivateKey) error {
-	_, err := w.Write(encoding.NewMPI(priv.MarshalIntegerSecret()).EncodedBytes())
+	_, err := w.Write(encoding.NewMPI(priv.MarshalByteSecret()).EncodedBytes())
 	return err
 }
 
@@ -830,7 +830,7 @@ func (pk *PrivateKey) parseECDSAPrivateKey(data []byte) (err error) {
 		return err
 	}
 
-	if err := ecdsaPriv.UnmarshalIntegerSecret(d.Bytes()); err != nil {
+	if err := ecdsaPriv.UnmarshalByteSecret(d.Bytes()); err != nil {
 		return err
 	}
 	if err := ecdsa.Validate(ecdsaPriv); err != nil {

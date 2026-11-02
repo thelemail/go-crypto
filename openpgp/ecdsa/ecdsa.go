@@ -4,19 +4,20 @@ package ecdsa
 
 import (
 	"errors"
-	"github.com/thelemail/go-crypto/openpgp/internal/ecc"
 	"io"
 	"math/big"
+
+	"github.com/thelemail/go-crypto/openpgp/internal/ecc"
 )
 
 type PublicKey struct {
-	X, Y  *big.Int
+	Point []byte
 	curve ecc.ECDSACurve
 }
 
 type PrivateKey struct {
 	PublicKey
-	D *big.Int
+	D []byte
 }
 
 func NewPublicKey(curve ecc.ECDSACurve) *PublicKey {
@@ -36,23 +37,23 @@ func (pk *PublicKey) GetCurve() ecc.ECDSACurve {
 }
 
 func (pk *PublicKey) MarshalPoint() []byte {
-	return pk.curve.MarshalIntegerPoint(pk.X, pk.Y)
+	return pk.curve.MarshalBytePoint(pk.Point)
 }
 
 func (pk *PublicKey) UnmarshalPoint(p []byte) error {
-	pk.X, pk.Y = pk.curve.UnmarshalIntegerPoint(p)
-	if pk.X == nil {
-		return errors.New("ecdsa: failed to parse EC point")
+	if err := pk.curve.ValidatePoint(p); err != nil {
+		return err
 	}
+	pk.Point = pk.curve.UnmarshalBytePoint(p)
 	return nil
 }
 
-func (sk *PrivateKey) MarshalIntegerSecret() []byte {
-	return sk.curve.MarshalIntegerSecret(sk.D)
+func (sk *PrivateKey) MarshalByteSecret() []byte {
+	return sk.curve.MarshalByteSecret(sk.D)
 }
 
-func (sk *PrivateKey) UnmarshalIntegerSecret(d []byte) error {
-	sk.D = sk.curve.UnmarshalIntegerSecret(d)
+func (sk *PrivateKey) UnmarshalByteSecret(d []byte) error {
+	sk.D = sk.curve.UnmarshalByteSecret(d)
 
 	if sk.D == nil {
 		return errors.New("ecdsa: failed to parse scalar")
@@ -63,18 +64,18 @@ func (sk *PrivateKey) UnmarshalIntegerSecret(d []byte) error {
 func GenerateKey(rand io.Reader, c ecc.ECDSACurve) (priv *PrivateKey, err error) {
 	priv = new(PrivateKey)
 	priv.PublicKey.curve = c
-	priv.PublicKey.X, priv.PublicKey.Y, priv.D, err = c.GenerateECDSA(rand)
+	priv.PublicKey.Point, priv.D, err = c.GenerateECDSA(rand)
 	return
 }
 
 func Sign(rand io.Reader, priv *PrivateKey, hash []byte) (r, s *big.Int, err error) {
-	return priv.PublicKey.curve.Sign(rand, priv.X, priv.Y, priv.D, hash)
+	return priv.PublicKey.curve.Sign(rand, priv.D, hash)
 }
 
 func Verify(pub *PublicKey, hash []byte, r, s *big.Int) bool {
-	return pub.curve.Verify(pub.X, pub.Y, hash, r, s)
+	return pub.curve.Verify(pub.Point, hash, r, s)
 }
 
 func Validate(priv *PrivateKey) error {
-	return priv.curve.ValidateECDSA(priv.X, priv.Y, priv.D.Bytes())
+	return priv.curve.ValidateECDSA(priv.Point, priv.D)
 }

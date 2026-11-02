@@ -1670,8 +1670,7 @@ func testKeyValidateEcdsaOnDecrypt(t *testing.T, ecdsaKey *Entity, password []by
 	}
 
 	// Corrupt public X in primary key
-	X := ecdsaPrimaryKey.PublicKey.PublicKey.(*ecdsa.PublicKey).X
-	ecdsaPrimaryKey.PublicKey.PublicKey.(*ecdsa.PublicKey).X = new(big.Int).Add(X, big.NewInt(1))
+	ecdsaPrimaryKey.PublicKey.PublicKey.(*ecdsa.PublicKey).Point[5] ^= 1
 	err = ecdsaPrimaryKey.Decrypt(password)
 	if _, ok := err.(errors.KeyInvalidError); !ok {
 		t.Fatal("Failed to detect invalid ECDSA key")

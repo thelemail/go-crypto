@@ -12,16 +12,15 @@ type Curve interface {
 
 type ECDSACurve interface {
 	Curve
-	MarshalIntegerPoint(x, y *big.Int) []byte
-	UnmarshalIntegerPoint([]byte) (x, y *big.Int)
-	MarshalIntegerSecret(d *big.Int) []byte
-	UnmarshalIntegerSecret(d []byte) *big.Int
-	MarshalFieldInteger(d *big.Int) []byte
-	UnmarshalFieldInteger(d []byte) *big.Int
-	GenerateECDSA(rand io.Reader) (x, y, secret *big.Int, err error)
-	Sign(rand io.Reader, x, y, d *big.Int, hash []byte) (r, s *big.Int, err error)
-	Verify(x, y *big.Int, hash []byte, r, s *big.Int) bool
-	ValidateECDSA(x, y *big.Int, secret []byte) error
+	MarshalBytePoint([]byte) []byte
+	UnmarshalBytePoint([]byte) []byte
+	MarshalByteSecret(d []byte) []byte
+	UnmarshalByteSecret(d []byte) []byte
+	GenerateECDSA(rand io.Reader) ([]byte, []byte, error)
+	Sign(rand io.Reader, secret, hash []byte) (*big.Int, *big.Int, error)
+	Verify(point, hash []byte, r, s *big.Int) bool
+	ValidatePoint(point []byte) error
+	ValidateECDSA(point, secret []byte) error
 }
 
 type EdDSACurve interface {

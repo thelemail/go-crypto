@@ -8,7 +8,6 @@ import (
 	"bytes"
 	"crypto/elliptic"
 	"encoding/hex"
-	"math/big"
 	"testing"
 	"time"
 
@@ -192,8 +191,13 @@ func TestEcc384Serialize(t *testing.T) {
 func TestP256KeyID(t *testing.T) {
 	// Confirm that key IDs are correctly calculated for ECC keys.
 	ecdsaPub := ecdsa.NewPublicKey(ecc.NewGenericCurve(elliptic.P256()))
-	ecdsaPub.X = fromHex("81fbbc20eea9e8d1c3ceabb0a8185925b113d1ac42cd5c78403bd83da19235c6")
-	ecdsaPub.Y = fromHex("5ed6db13d91db34507d0129bf88981878d29adbf8fcd1720afdb767bb3fcaaff")
+	point, err := hex.DecodeString("04" +
+		"81fbbc20eea9e8d1c3ceabb0a8185925b113d1ac42cd5c78403bd83da19235c6" +
+		"5ed6db13d91db34507d0129bf88981878d29adbf8fcd1720afdb767bb3fcaaff")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ecdsaPub.Point = point
 
 	pub := NewECDSAPublicKey(time.Unix(1297309478, 0), ecdsaPub)
 
@@ -201,14 +205,6 @@ func TestP256KeyID(t *testing.T) {
 	if pub.KeyId != want {
 		t.Errorf("want key ID: %x, got %x", want, pub.KeyId)
 	}
-}
-
-func fromHex(hex string) *big.Int {
-	n, ok := new(big.Int).SetString(hex, 16)
-	if !ok {
-		panic("bad hex number: " + hex)
-	}
-	return n
 }
 
 func TestECDHPublicKeyShortKDFHash(t *testing.T) {

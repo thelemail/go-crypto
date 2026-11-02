@@ -3,9 +3,9 @@
 package ecdsa
 
 import (
+	"bytes"
 	"crypto/rand"
 	"io"
-	"math/big"
 	"testing"
 
 	"github.com/thelemail/go-crypto/openpgp/internal/ecc"
@@ -69,7 +69,7 @@ func testValidation(t *testing.T, priv *PrivateKey) {
 		t.Fatalf("valid key marked as invalid: %s", err)
 	}
 
-	priv.X.Sub(priv.X, big.NewInt(1))
+	priv.Point[5] ^= 1
 	if err := Validate(priv); err == nil {
 		t.Fatal("failed to detect invalid key")
 	}
@@ -77,7 +77,7 @@ func testValidation(t *testing.T, priv *PrivateKey) {
 
 func testMarshalUnmarshal(t *testing.T, priv *PrivateKey) {
 	p := priv.MarshalPoint()
-	d := priv.MarshalIntegerSecret()
+	d := priv.MarshalByteSecret()
 
 	parsed := NewPrivateKey(*NewPublicKey(priv.GetCurve()))
 
@@ -85,11 +85,45 @@ func testMarshalUnmarshal(t *testing.T, priv *PrivateKey) {
 		t.Fatalf("unable to unmarshal point: %s", err)
 	}
 
-	if err := parsed.UnmarshalIntegerSecret(d); err != nil {
+	if err := parsed.UnmarshalByteSecret(d); err != nil {
 		t.Fatalf("unable to unmarshal integer: %s", err)
 	}
 
-	if priv.X.Cmp(parsed.X) != 0 || priv.Y.Cmp(parsed.Y) != 0 || priv.D.Cmp(parsed.D) != 0 {
+	if !bytes.Equal(priv.Point, parsed.Point) || !bytes.Equal(priv.D, parsed.D) {
 		t.Fatal("failed to marshal/unmarshal correctly")
+	}
+}
+
+func TestShortSecretNIST(t *testing.T) {
+	for _, curve := range ecc.Curves {
+		ecdsaCurve, ok := curve.Curve.(ecc.ECDSACurve)
+		if !ok {
+			continue
+		}
+
+		t.Run(ecdsaCurve.GetCurveName(), func(t *testing.T) {
+			var priv *PrivateKey
+			for i := 0; i < 4096; i++ {
+				priv = testGenerate(t, ecdsaCurve)
+				if priv.D[0] == 0 {
+					break
+				}
+			}
+			if priv.D[0] != 0 {
+				t.Fatal("no key with a leading zero byte found")
+			}
+
+			full := priv.D
+			priv.D = full[1:]
+			if err := Validate(priv); err != nil {
+				t.Fatalf("short secret rejected: %s", err)
+			}
+			testSignVerify(t, priv)
+
+			priv.D = append([]byte{0}, full...)
+			if err := Validate(priv); err == nil {
+				t.Fatal("oversized secret accepted")
+			}
+		})
 	}
 }

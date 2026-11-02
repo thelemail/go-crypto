@@ -49,37 +49,12 @@ func (c *genericCurve) UnmarshalBytePoint(point []byte) []byte {
 	return point
 }
 
-func (c *genericCurve) MarshalIntegerPoint(x, y *big.Int) []byte {
-	return elliptic.Marshal(c.Curve, x, y)
-}
-
-func (c *genericCurve) UnmarshalIntegerPoint(point []byte) (x, y *big.Int) {
-	return elliptic.Unmarshal(c.Curve, point)
-}
-
 func (c *genericCurve) MarshalByteSecret(d []byte) []byte {
 	return d
 }
 
 func (c *genericCurve) UnmarshalByteSecret(d []byte) []byte {
 	return d
-}
-
-func (c *genericCurve) MarshalIntegerSecret(d *big.Int) []byte {
-	return d.Bytes()
-}
-
-func (c *genericCurve) UnmarshalIntegerSecret(d []byte) *big.Int {
-	return new(big.Int).SetBytes(d)
-}
-
-func (c *genericCurve) MarshalFieldInteger(i *big.Int) (b []byte) {
-	b = make([]byte, (c.Curve.Params().BitSize+7)/8)
-	return i.FillBytes(b)
-}
-
-func (c *genericCurve) UnmarshalFieldInteger(d []byte) *big.Int {
-	return new(big.Int).SetBytes(d)
 }
 
 func (c *genericCurve) GenerateECDH(rand io.Reader) (point, secret []byte, err error) {
@@ -91,13 +66,23 @@ func (c *genericCurve) GenerateECDH(rand io.Reader) (point, secret []byte, err e
 	return priv.PublicKey().Bytes(), priv.Bytes(), nil
 }
 
-func (c *genericCurve) GenerateECDSA(rand io.Reader) (x, y, secret *big.Int, err error) {
+func (c *genericCurve) GenerateECDSA(rand io.Reader) ([]byte, []byte, error) {
 	priv, err := ecdsa.GenerateKey(c.Curve, rand)
 	if err != nil {
-		return
+		return nil, nil, err
 	}
 
-	return priv.X, priv.Y, priv.D, nil
+	point, err := priv.PublicKey.Bytes()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	secret, err := priv.Bytes()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return point, secret, nil
 }
 
 func (c *genericCurve) Encaps(rand io.Reader, point []byte) (ephemeral, sharedSecret []byte, err error) {
@@ -141,35 +126,50 @@ func (c *genericCurve) Decaps(ephemeral, secret []byte) (sharedSecret []byte, er
 	return priv.ECDH(pub)
 }
 
-func (c *genericCurve) Sign(rand io.Reader, x, y, d *big.Int, hash []byte) (r, s *big.Int, err error) {
-	priv := &ecdsa.PrivateKey{D: d, PublicKey: ecdsa.PublicKey{X: x, Y: y, Curve: c.Curve}}
+func (c *genericCurve) Sign(rand io.Reader, secret, hash []byte) (*big.Int, *big.Int, error) {
+	priv, err := c.ecdsaPrivateKey(secret)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	return ecdsa.Sign(rand, priv, hash)
 }
 
-func (c *genericCurve) Verify(x, y *big.Int, hash []byte, r, s *big.Int) bool {
-	pub := &ecdsa.PublicKey{X: x, Y: y, Curve: c.Curve}
+func (c *genericCurve) Verify(point, hash []byte, r, s *big.Int) bool {
+	pub, err := ecdsa.ParseUncompressedPublicKey(c.Curve, point)
+	if err != nil {
+		return false
+	}
+
 	return ecdsa.Verify(pub, hash, r, s)
 }
 
-func (c *genericCurve) validate(xP, yP *big.Int, secret []byte) error {
-	// the public point should not be at infinity (0,0)
-	zero := new(big.Int)
-	if xP.Cmp(zero) == 0 && yP.Cmp(zero) == 0 {
-		return errors.KeyInvalidError(fmt.Sprintf("ecc (%s): infinity point", c.Curve.Params().Name))
-	}
-
-	// re-derive the public point Q' = (X,Y) = dG
-	// to compare to declared Q in public key
-	expectedX, expectedY := c.Curve.ScalarBaseMult(secret)
-	if xP.Cmp(expectedX) != 0 || yP.Cmp(expectedY) != 0 {
-		return errors.KeyInvalidError(fmt.Sprintf("ecc (%s): invalid point", c.Curve.Params().Name))
+func (c *genericCurve) ValidatePoint(point []byte) error {
+	if _, err := ecdsa.ParseUncompressedPublicKey(c.Curve, point); err != nil {
+		return errors.KeyInvalidError(fmt.Sprintf("ecc (%s): invalid point",
+			c.Curve.Params().Name))
 	}
 
 	return nil
 }
 
-func (c *genericCurve) ValidateECDSA(xP, yP *big.Int, secret []byte) error {
-	return c.validate(xP, yP, secret)
+func (c *genericCurve) ValidateECDSA(point, secret []byte) error {
+	priv, err := c.ecdsaPrivateKey(secret)
+	if err != nil {
+		return err
+	}
+
+	pub, err := priv.PublicKey.Bytes()
+	if err != nil {
+		return err
+	}
+
+	if subtle.ConstantTimeCompare(pub, point) != 1 {
+		return errors.KeyInvalidError(fmt.Sprintf("ecc (%s): invalid point",
+			c.Curve.Params().Name))
+	}
+
+	return nil
 }
 
 func (c *genericCurve) ValidateECDH(point []byte, secret []byte) error {
@@ -202,4 +202,19 @@ func (c *genericCurve) fixedSecret(d []byte) ([]byte, error) {
 	out := make([]byte, size)
 	copy(out[size-len(d):], d)
 	return out, nil
+}
+
+func (c *genericCurve) ecdsaPrivateKey(secret []byte) (*ecdsa.PrivateKey, error) {
+	d, err := c.fixedSecret(secret)
+	if err != nil {
+		return nil, err
+	}
+
+	priv, err := ecdsa.ParseRawPrivateKey(c.Curve, d)
+	if err != nil {
+		return nil, errors.KeyInvalidError(fmt.Sprintf("ecc (%s): invalid secret",
+			c.Curve.Params().Name))
+	}
+
+	return priv, nil
 }
