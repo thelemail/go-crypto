@@ -84,11 +84,6 @@ type Config struct {
 	// when producing a generic certification signature onto an existing user ID.
 	// The identity must be present in the signer Entity.
 	SigningIdentity string
-	// InsecureAllowDecryptionWithSigningKeys allows decryption with keys marked as signing keys in the v2 API.
-	// This setting is potentially insecure, but it is needed as some libraries
-	// ignored key flags when selecting a key for encryption.
-	// Not relevant for the v1 API, as all keys were allowed in decryption.
-	InsecureAllowDecryptionWithSigningKeys bool
 	// KnownNotations is a map of Notation Data names to bools, which controls
 	// the notation names that are allowed to be present in critical Notation Data
 	// signature subpackets.
@@ -241,13 +236,6 @@ func (c *Config) SigningUserId() string {
 		return ""
 	}
 	return c.SigningIdentity
-}
-
-func (c *Config) AllowDecryptionWithSigningKeys() bool {
-	if c == nil {
-		return false
-	}
-	return c.InsecureAllowDecryptionWithSigningKeys
 }
 
 func (c *Config) KnownNotation(notationName string) bool {
