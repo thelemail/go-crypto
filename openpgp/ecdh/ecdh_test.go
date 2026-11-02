@@ -151,3 +151,38 @@ func TestShortKDFHashRejected(t *testing.T) {
 		t.Error("expected error when the KDF hash is shorter than the KDF cipher key")
 	}
 }
+
+func TestShortSecretNIST(t *testing.T) {
+	for _, curve := range ecc.Curves {
+		ecdhCurve, ok := curve.Curve.(ecc.ECDHCurve)
+		if !ok || curve.GenName == ecc.Curve25519GenName {
+			continue
+		}
+
+		t.Run(ecdhCurve.GetCurveName(), func(t *testing.T) {
+			var priv *PrivateKey
+			for i := 0; i < 4096; i++ {
+				priv = testGenerate(t, ecdhCurve)
+				if priv.D[0] == 0 {
+					break
+				}
+			}
+			if priv.D[0] != 0 {
+				t.Fatal("no key with a leading zero byte found")
+			}
+
+			full := priv.D
+			priv.D = full[1:]
+
+			if err := Validate(priv); err != nil {
+				t.Fatalf("short secret rejected: %s", err)
+			}
+			testEncryptDecrypt(t, priv, curve.Oid.Bytes(), make([]byte, 20))
+
+			priv.D = append([]byte{0}, full...)
+			if err := Validate(priv); err == nil {
+				t.Fatal("oversized secret accepted")
+			}
+		})
+	}
+}
