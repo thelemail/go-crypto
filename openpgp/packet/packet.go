@@ -561,8 +561,6 @@ func (pka PublicKeyAlgorithm) CanSign() bool {
 type CipherFunction algorithm.CipherFunction
 
 const (
-	Cipher3DES   CipherFunction = 2
-	CipherCAST5  CipherFunction = 3
 	CipherAES128 CipherFunction = 7
 	CipherAES192 CipherFunction = 8
 	CipherAES256 CipherFunction = 9
@@ -670,7 +668,6 @@ const (
 	CurveNistP256      Curve = "P256"
 	CurveNistP384      Curve = "P384"
 	CurveNistP521      Curve = "P521"
-	CurveSecP256k1     Curve = "SecP256k1"
 	CurveBrainpoolP256 Curve = "BrainpoolP256"
 	CurveBrainpoolP384 Curve = "BrainpoolP384"
 	CurveBrainpoolP512 Curve = "BrainpoolP512"

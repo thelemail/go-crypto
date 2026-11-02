@@ -33,8 +33,6 @@ var hashes = []crypto.Hash{
 }
 
 var ciphers = []packet.CipherFunction{
-	packet.Cipher3DES,
-	packet.CipherCAST5,
 	packet.CipherAES128,
 	packet.CipherAES192,
 	packet.CipherAES256,
