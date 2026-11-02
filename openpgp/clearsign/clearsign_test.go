@@ -18,9 +18,7 @@ import (
 )
 
 var allowAllAlgorithmsConfig = &packet.Config{
-	RejectMessageHashAlgorithms: map[crypto.Hash]bool{},
-	RejectCurves:                map[packet.Curve]bool{},
-	MinRSABits:                  512,
+	MinRSABits: 512,
 }
 
 func testParse(t *testing.T, input []byte, expected, expectedPlaintext string) {

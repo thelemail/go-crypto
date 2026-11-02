@@ -14,21 +14,6 @@ import (
 	"github.com/thelemail/go-crypto/openpgp/s2k"
 )
 
-var (
-	defaultRejectHashAlgorithms = map[crypto.Hash]bool{
-		crypto.MD5:       true,
-		crypto.RIPEMD160: true,
-	}
-	defaultRejectMessageHashAlgorithms = map[crypto.Hash]bool{
-		crypto.SHA1:      true,
-		crypto.MD5:       true,
-		crypto.RIPEMD160: true,
-	}
-	defaultRejectCurves = map[Curve]bool{
-		CurveSecP256k1: true,
-	}
-)
-
 // Config collects a number of parameters along with sensible defaults.
 // A nil *Config is valid and results in all default values.
 type Config struct {
@@ -95,10 +80,6 @@ type Config struct {
 	V6Keys bool
 	// Minimum RSA key size allowed for key generation and message signing, verification and encryption.
 	MinRSABits uint16
-	// Reject insecure algorithms, only works with v2 api
-	RejectHashAlgorithms        map[crypto.Hash]bool
-	RejectMessageHashAlgorithms map[crypto.Hash]bool
-	RejectCurves                map[Curve]bool
 	// "The validity period of the key.  This is the number of seconds after
 	// the key creation time that the key expires.  If this is not present
 	// or has a value of zero, the key never expires.  This is found only on
@@ -353,39 +334,6 @@ func (c *Config) MinimumRSABits() uint16 {
 		return 2047
 	}
 	return c.MinRSABits
-}
-
-func (c *Config) RejectHashAlgorithm(hash crypto.Hash) bool {
-	var rejectedAlgorithms map[crypto.Hash]bool
-	if c == nil || c.RejectHashAlgorithms == nil {
-		// Default
-		rejectedAlgorithms = defaultRejectHashAlgorithms
-	} else {
-		rejectedAlgorithms = c.RejectHashAlgorithms
-	}
-	return rejectedAlgorithms[hash]
-}
-
-func (c *Config) RejectMessageHashAlgorithm(hash crypto.Hash) bool {
-	var rejectedAlgorithms map[crypto.Hash]bool
-	if c == nil || c.RejectMessageHashAlgorithms == nil {
-		// Default
-		rejectedAlgorithms = defaultRejectMessageHashAlgorithms
-	} else {
-		rejectedAlgorithms = c.RejectMessageHashAlgorithms
-	}
-	return rejectedAlgorithms[hash]
-}
-
-func (c *Config) RejectCurve(curve Curve) bool {
-	var rejectedCurve map[Curve]bool
-	if c == nil || c.RejectCurves == nil {
-		// Default
-		rejectedCurve = defaultRejectCurves
-	} else {
-		rejectedCurve = c.RejectCurves
-	}
-	return rejectedCurve[curve]
 }
 
 func (c *Config) StrictPacketSequence() bool {

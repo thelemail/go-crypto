@@ -50,7 +50,7 @@ var endText = []byte("-----BEGIN PGP SIGNATURE-----")
 // end is a marker which denotes the end of the armored signature.
 var end = []byte("\n-----END PGP SIGNATURE-----")
 
-var allowedHashHeaderValues = []string{"MD5", "SHA1", "RIPEMD160", "SHA224", "SHA256", "SHA384", "SHA512", "SHA3-256", "SHA3-512"}
+var allowedHashHeaderValues = []string{"SHA1", "SHA224", "SHA256", "SHA384", "SHA512", "SHA3-256", "SHA3-512"}
 
 var crlf = []byte("\r\n")
 var lf = byte('\n')
