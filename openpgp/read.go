@@ -155,8 +155,7 @@ func ReadMessage(r io.Reader, keyring KeyRing, prompt PromptFunction, config *pa
 	// Now that we have the list of encrypted keys we need to decrypt at
 	// least one of them or, if we cannot, we need to call the prompt
 	// function so that it can decrypt a key or give us a passphrase.
-FindKey:
-	for {
+	for decrypted == nil {
 		// See if any of the keys already have a private key available
 		candidates = candidates[:0]
 		candidateFingerprints := make(map[string]bool)
@@ -179,7 +178,7 @@ FindKey:
 				}
 				if decrypted != nil {
 					md.DecryptedWith = pk.key
-					break FindKey
+					break
 				}
 			} else {
 				fpr := string(pk.key.PublicKey.Fingerprint[:])
@@ -189,6 +188,10 @@ FindKey:
 				candidates = append(candidates, pk.key)
 				candidateFingerprints[fpr] = true
 			}
+		}
+
+		if decrypted != nil {
+			break
 		}
 
 		if len(candidates) == 0 && len(symKeys) == 0 {
@@ -216,7 +219,7 @@ FindKey:
 						return nil, err
 					}
 					if decrypted != nil {
-						break FindKey
+						break
 					}
 				}
 			}
