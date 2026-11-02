@@ -1,12 +1,12 @@
 package x25519
 
 import (
+	"crypto/ecdh"
 	"crypto/hkdf"
 	"crypto/sha256"
 	"crypto/subtle"
 	"io"
 
-	x25519lib "github.com/cloudflare/circl/dh/x25519"
 	"github.com/thelemail/go-crypto/openpgp/aes/keywrap"
 	"github.com/thelemail/go-crypto/openpgp/errors"
 )
@@ -15,7 +15,7 @@ const (
 	hkdfInfo      = "OpenPGP X25519"
 	aes128KeySize = 16
 	// The size of a public or private key in bytes.
-	KeySize = x25519lib.Size
+	KeySize = 32
 )
 
 type PublicKey struct {
@@ -37,98 +37,121 @@ func NewPrivateKey(key PublicKey) *PrivateKey {
 }
 
 // Validate validates that the provided public key matches the private key.
-func Validate(pk *PrivateKey) (err error) {
-	var expectedPublicKey, privateKey x25519lib.Key
-	subtle.ConstantTimeCopy(1, privateKey[:], pk.Secret)
-	x25519lib.KeyGen(&expectedPublicKey, &privateKey)
-	if subtle.ConstantTimeCompare(expectedPublicKey[:], pk.PublicKey.Point) == 0 {
+func Validate(pk *PrivateKey) error {
+	privateKey, err := ecdh.X25519().NewPrivateKey(pk.Secret)
+	if err != nil {
 		return errors.KeyInvalidError("x25519: invalid key")
 	}
+
+	if subtle.ConstantTimeCompare(privateKey.PublicKey().Bytes(), pk.PublicKey.Point) == 0 {
+		return errors.KeyInvalidError("x25519: invalid key")
+	}
+
 	return nil
 }
 
 // GenerateKey generates a new x25519 key pair.
 func GenerateKey(rand io.Reader) (*PrivateKey, error) {
-	var privateKey, publicKey x25519lib.Key
-	privateKeyOut := new(PrivateKey)
-	err := generateKey(rand, &privateKey, &publicKey)
+	privateKey, err := generateKey(rand)
 	if err != nil {
 		return nil, err
 	}
-	privateKeyOut.PublicKey.Point = publicKey[:]
-	privateKeyOut.Secret = privateKey[:]
+
+	privateKeyOut := new(PrivateKey)
+	privateKeyOut.PublicKey.Point = privateKey.PublicKey().Bytes()
+	privateKeyOut.Secret = privateKey.Bytes()
 	return privateKeyOut, nil
 }
 
-func generateKey(rand io.Reader, privateKey *x25519lib.Key, publicKey *x25519lib.Key) error {
+func generateKey(rand io.Reader) (*ecdh.PrivateKey, error) {
+	secret := make([]byte, KeySize)
 	maxRounds := 10
 	isZero := true
 	for round := 0; isZero; round++ {
 		if round == maxRounds {
-			return errors.InvalidArgumentError("x25519: zero keys only, randomness source might be corrupt")
+			return nil, errors.InvalidArgumentError("x25519: zero keys only, randomness source might be corrupt")
 		}
-		_, err := io.ReadFull(rand, privateKey[:])
+		_, err := io.ReadFull(rand, secret)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		isZero = constantTimeIsZero(privateKey[:])
+		isZero = constantTimeIsZero(secret)
 	}
-	x25519lib.KeyGen(publicKey, privateKey)
-	return nil
+
+	privateKey, err := ecdh.X25519().NewPrivateKey(secret)
+	if err != nil {
+		return nil, err
+	}
+
+	return privateKey, nil
 }
 
 // Encrypt encrypts a sessionKey with x25519 according to
 // the OpenPGP crypto refresh specification section 5.1.6. The function assumes that the
 // sessionKey has the correct format and padding according to the specification.
-func Encrypt(rand io.Reader, publicKey *PublicKey, sessionKey []byte) (ephemeralPublicKey, encryptedSessionKey []byte, err error) {
-	var ephemeralPrivate, ephemeralPublic, staticPublic, shared x25519lib.Key
+func Encrypt(rand io.Reader, publicKey *PublicKey, sessionKey []byte) ([]byte, []byte, error) {
 	// Check that the input static public key has 32 bytes
-	if len(publicKey.Point) != KeySize {
-		err = errors.KeyInvalidError("x25519: the public key has the wrong size")
-		return
-	}
-	copy(staticPublic[:], publicKey.Point)
-	// Generate ephemeral keyPair
-	err = generateKey(rand, &ephemeralPrivate, &ephemeralPublic)
+	staticPublic, err := ecdh.X25519().NewPublicKey(publicKey.Point)
 	if err != nil {
-		return
+		return nil, nil, errors.KeyInvalidError("x25519: the public key has the wrong size")
 	}
+
+	// Generate ephemeral keyPair
+	ephemeralPrivate, err := generateKey(rand)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	// Compute shared key
-	ok := x25519lib.Shared(&shared, &ephemeralPrivate, &staticPublic)
-	if !ok {
-		err = errors.KeyInvalidError("x25519: the public key is a low order point")
-		return
+	shared, err := ephemeralPrivate.ECDH(staticPublic)
+	if err != nil {
+		return nil, nil, errors.KeyInvalidError("x25519: the public key is a low order point")
 	}
-	ephemeralPublicKey = ephemeralPublic[:]
+
+	ephemeralPublicKey := ephemeralPrivate.PublicKey().Bytes()
+
 	// Derive the encryption key from the shared secret
-	encryptionKey := applyHKDF(ephemeralPublicKey, publicKey.Point[:], shared[:])
+	encryptionKey := applyHKDF(ephemeralPublicKey, publicKey.Point, shared)
+
 	// Encrypt the sessionKey with aes key wrapping
-	encryptedSessionKey, err = keywrap.Wrap(encryptionKey, sessionKey)
-	return
+	encryptedSessionKey, err := keywrap.Wrap(encryptionKey, sessionKey)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return ephemeralPublicKey, encryptedSessionKey, nil
 }
 
 // Decrypt decrypts a session key stored in ciphertext with the provided x25519
 // private key and ephemeral public key.
-func Decrypt(privateKey *PrivateKey, ephemeralPublicKey, ciphertext []byte) (encodedSessionKey []byte, err error) {
-	var ephemeralPublic, staticPrivate, shared x25519lib.Key
+func Decrypt(privateKey *PrivateKey, ephemeralPublicKey, ciphertext []byte) ([]byte, error) {
 	// Check that the input ephemeral public key has 32 bytes
-	if len(ephemeralPublicKey) != KeySize {
-		err = errors.KeyInvalidError("x25519: the public key has the wrong size")
-		return
+	ephemeralPublic, err := ecdh.X25519().NewPublicKey(ephemeralPublicKey)
+	if err != nil {
+		return nil, errors.KeyInvalidError("x25519: the public key has the wrong size")
 	}
-	copy(ephemeralPublic[:], ephemeralPublicKey)
-	subtle.ConstantTimeCopy(1, staticPrivate[:], privateKey.Secret)
+
+	staticPrivate, err := ecdh.X25519().NewPrivateKey(privateKey.Secret)
+	if err != nil {
+		return nil, errors.KeyInvalidError("x25519: invalid key")
+	}
+
 	// Compute shared key
-	ok := x25519lib.Shared(&shared, &staticPrivate, &ephemeralPublic)
-	if !ok {
-		err = errors.KeyInvalidError("x25519: the ephemeral public key is a low order point")
-		return
+	shared, err := staticPrivate.ECDH(ephemeralPublic)
+	if err != nil {
+		return nil, errors.KeyInvalidError("x25519: the ephemeral public key is a low order point")
 	}
+
 	// Derive the encryption key from the shared secret
-	encryptionKey := applyHKDF(ephemeralPublicKey, privateKey.PublicKey.Point[:], shared[:])
+	encryptionKey := applyHKDF(ephemeralPublicKey, privateKey.PublicKey.Point, shared)
+
 	// Decrypt the session key with aes key wrapping
-	encodedSessionKey, err = keywrap.Unwrap(encryptionKey, ciphertext)
-	return
+	encodedSessionKey, err := keywrap.Unwrap(encryptionKey, ciphertext)
+	if err != nil {
+		return nil, err
+	}
+
+	return encodedSessionKey, nil
 }
 
 func applyHKDF(ephemeralPublicKey []byte, publicKey []byte, sharedSecret []byte) []byte {
