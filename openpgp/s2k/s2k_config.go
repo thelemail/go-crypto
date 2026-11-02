@@ -12,7 +12,7 @@ type Config struct {
 	// s2k.SaltedS2K can also be used.
 	// Note: Argon2 is the strongest option but not all OpenPGP implementations are compatible with it
 	//(pending standardisation).
-	// 0 (simple), 1(salted), 3(iterated), 4(argon2)
+	// 1(salted), 3(iterated), 4(argon2)
 	// 2(reserved) 100-110(private/experimental).
 	S2KMode Mode
 	// Only relevant if S2KMode is not set to s2k.Argon2S2K.

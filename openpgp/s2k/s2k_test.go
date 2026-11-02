@@ -14,6 +14,8 @@ import (
 	_ "crypto/sha512"
 	"encoding/hex"
 	"testing"
+
+	"github.com/thelemail/go-crypto/openpgp/errors"
 )
 
 var saltedTests = []struct {
@@ -121,9 +123,6 @@ var parseTests = []struct {
 	dummyKey      bool
 	params        Params
 }{
-	/* Simple with SHA1 */
-	{"0002", "hello", "aaf4c61d", false,
-		Params{SimpleS2K, 0x02, [16]byte{}, 0, 0, 0, 0}},
 	/* Salted with SHA1 */
 	{"01020102030405060708", "hello", "f4f7d67e", false,
 		Params{SaltedS2K, 0x02, [16]byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, 0, 0, 0, 0}},
@@ -184,6 +183,14 @@ func TestParseIntoParams(t *testing.T) {
 		if testing.Short() {
 			break
 		}
+	}
+}
+
+func TestParseIntoParamsRejectsSimple(t *testing.T) {
+	spec, _ := hex.DecodeString("0002")
+	_, err := ParseIntoParams(bytes.NewBuffer(spec))
+	if _, ok := err.(errors.UnsupportedError); !ok {
+		t.Fatalf("want unsupported error for simple s2k, got %v", err)
 	}
 }
 

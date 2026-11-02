@@ -228,14 +228,14 @@ func (pk *PrivateKey) parse(r io.Reader) (err error) {
 		if pk.s2kParams.Dummy() {
 			return
 		}
+		if pk.s2kType == S2KCHECKSUM {
+			return errors.UnsupportedError("malleable cfb s2k usage in private key")
+		}
 		if !pk.cipher.IsSupported() {
 			return errors.UnsupportedError("unsupported cipher function in private key")
 		}
 		if pk.s2kParams.Mode() == s2k.Argon2S2K && pk.s2kType != S2KAEAD {
 			return errors.StructuralError("using Argon2 S2K without AEAD is not allowed")
-		}
-		if pk.s2kParams.Mode() == s2k.SimpleS2K && pk.Version == 6 {
-			return errors.StructuralError("using Simple S2K with version 6 keys is not allowed")
 		}
 		pk.s2k, err = pk.s2kParams.Function()
 		if err != nil {
@@ -494,35 +494,20 @@ func (pk *PrivateKey) decrypt(decryptionKey []byte) error {
 		if err != nil {
 			return err
 		}
-	case S2KSHA1, S2KCHECKSUM:
+	case S2KSHA1:
 		cfb := cipher.NewCFBDecrypter(block, pk.iv)
 		data = make([]byte, len(pk.encryptedData))
 		cfb.XORKeyStream(data, pk.encryptedData)
-		if pk.s2kType == S2KSHA1 {
-			if len(data) < sha1.Size {
-				return errors.StructuralError("truncated private key data")
-			}
-			h := sha1.New()
-			h.Write(data[:len(data)-sha1.Size])
-			sum := h.Sum(nil)
-			if !bytes.Equal(sum, data[len(data)-sha1.Size:]) {
-				return errors.StructuralError("private key checksum failure")
-			}
-			data = data[:len(data)-sha1.Size]
-		} else {
-			if len(data) < 2 {
-				return errors.StructuralError("truncated private key data")
-			}
-			var sum uint16
-			for i := 0; i < len(data)-2; i++ {
-				sum += uint16(data[i])
-			}
-			if data[len(data)-2] != uint8(sum>>8) ||
-				data[len(data)-1] != uint8(sum) {
-				return errors.StructuralError("private key checksum failure")
-			}
-			data = data[:len(data)-2]
+		if len(data) < sha1.Size {
+			return errors.StructuralError("truncated private key data")
 		}
+		h := sha1.New()
+		h.Write(data[:len(data)-sha1.Size])
+		sum := h.Sum(nil)
+		if !bytes.Equal(sum, data[len(data)-sha1.Size:]) {
+			return errors.StructuralError("private key checksum failure")
+		}
+		data = data[:len(data)-sha1.Size]
 	default:
 		return errors.InvalidArgumentError("invalid s2k type")
 	}
@@ -651,25 +636,17 @@ func (pk *PrivateKey) encrypt(key []byte, params *s2k.Params, s2kType S2KType, c
 		}
 		// Decrypt the encrypted key material with aead
 		pk.encryptedData = aead.Seal(nil, pk.iv, privateKeyBytes, additionalData)
-	case S2KSHA1, S2KCHECKSUM:
+	case S2KSHA1:
 		pk.iv = make([]byte, pk.cipher.blockSize())
 		_, err = io.ReadFull(rand, pk.iv)
 		if err != nil {
 			return err
 		}
 		cfb := cipher.NewCFBEncrypter(block, pk.iv)
-		if s2kType == S2KSHA1 {
-			h := sha1.New()
-			h.Write(privateKeyBytes)
-			sum := h.Sum(nil)
-			privateKeyBytes = append(privateKeyBytes, sum...)
-		} else {
-			var sum uint16
-			for _, b := range privateKeyBytes {
-				sum += uint16(b)
-			}
-			privateKeyBytes = append(privateKeyBytes, []byte{uint8(sum >> 8), uint8(sum)}...)
-		}
+		h := sha1.New()
+		h.Write(privateKeyBytes)
+		sum := h.Sum(nil)
+		privateKeyBytes = append(privateKeyBytes, sum...)
 		pk.encryptedData = make([]byte, len(privateKeyBytes))
 		cfb.XORKeyStream(pk.encryptedData, privateKeyBytes)
 	default:

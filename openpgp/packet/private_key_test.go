@@ -21,6 +21,7 @@ import (
 
 	"github.com/thelemail/go-crypto/openpgp/ecdsa"
 	"github.com/thelemail/go-crypto/openpgp/eddsa"
+	"github.com/thelemail/go-crypto/openpgp/errors"
 	"github.com/thelemail/go-crypto/openpgp/internal/ecc"
 	"github.com/thelemail/go-crypto/openpgp/internal/encoding"
 	"github.com/thelemail/go-crypto/openpgp/s2k"
@@ -561,5 +562,50 @@ func TestECDSASignerRandomizedNotation(t *testing.T) {
 	}
 	if sig.Notations[0].Name != SaltNotationName {
 		t.Fatalf("failed to find randomized notation")
+	}
+}
+
+func privateKeyWithS2KUsage(t *testing.T, tail []byte) []byte {
+	raw, err := hex.DecodeString(privKeyRSAHex)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := append(append([]byte{}, raw[3:144]...), tail...)
+	var out bytes.Buffer
+	if err := serializeHeader(&out, packetTypePrivateKey, len(body)); err != nil {
+		t.Fatal(err)
+	}
+	out.Write(body)
+	return out.Bytes()
+}
+
+func TestMalleableCFBPrivateKeyRejected(t *testing.T) {
+	raw, err := hex.DecodeString(privKeyRSAHex)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tail := append([]byte{0xff}, raw[145:]...)
+	_, err = Read(bytes.NewReader(privateKeyWithS2KUsage(t, tail)))
+	if _, ok := err.(errors.UnsupportedError); !ok {
+		t.Fatalf("want unsupported error for s2k usage 255, got %v", err)
+	}
+}
+
+func TestDummyPrivateKeyMalleableCFBUsage(t *testing.T) {
+	stub := []byte{0xff, 0x00, 0x65, 0x02, 'G', 'N', 'U', 0x01}
+	p, err := Read(bytes.NewReader(privateKeyWithS2KUsage(t, stub)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	pk, ok := p.(*PrivateKey)
+	if !ok || !pk.Dummy() {
+		t.Fatalf("want dummy private key, got %#v", p)
+	}
+	var out bytes.Buffer
+	if err := pk.Serialize(&out); err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(out.Bytes(), privateKeyWithS2KUsage(t, stub)) {
+		t.Fatalf("dummy key did not round-trip: %x", out.Bytes())
 	}
 }

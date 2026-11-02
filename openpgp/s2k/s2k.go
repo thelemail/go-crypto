@@ -22,9 +22,8 @@ type Mode uint8
 
 // Defines the default S2KMode constants
 //
-//	0 (simple), 1(salted), 3(iterated), 4(argon2)
+//	1(salted), 3(iterated), 4(argon2)
 const (
-	SimpleS2K         Mode = 0
 	SaltedS2K         Mode = 1
 	IteratedSaltedS2K Mode = 3
 	Argon2S2K         Mode = 4
@@ -36,7 +35,7 @@ const Argon2SaltSize int = 16
 // Params contains all the parameters of the s2k packet
 type Params struct {
 	// mode is the mode of s2k function.
-	// It can be 0 (simple), 1(salted), 3(iterated)
+	// It can be 1(salted), 3(iterated)
 	// 2(reserved) 100-110(private/experimental).
 	mode Mode
 	// hashId is the ID of the hash function used in any of the modes
@@ -107,12 +106,6 @@ func encodeMemory(memory uint32, parallelism uint8) uint8 {
 // decodeMemory computes the decoded memory in kibibytes as 2**memoryExponent
 func decodeMemory(memoryExponent uint8) uint32 {
 	return uint32(1) << memoryExponent
-}
-
-// Simple writes to out the result of computing the Simple S2K function (RFC
-// 4880, section 3.7.1.1) using the given hash and input passphrase.
-func Simple(out []byte, h hash.Hash, in []byte) {
-	Salted(out, h, in, nil)
 }
 
 var zero [1]byte
@@ -250,13 +243,6 @@ func ParseIntoParams(r io.Reader) (params *Params, err error) {
 	}
 
 	switch params.mode {
-	case SimpleS2K:
-		_, err = io.ReadFull(r, buf[:1])
-		if err != nil {
-			return nil, err
-		}
-		params.hashId = buf[0]
-		return params, nil
 	case SaltedS2K:
 		_, err = io.ReadFull(r, buf[:9])
 		if err != nil {
@@ -339,12 +325,6 @@ func (params *Params) Function() (f func(out, in []byte), err error) {
 	}
 
 	switch params.mode {
-	case SimpleS2K:
-		f := func(out, in []byte) {
-			Simple(out, hashObj.New(), in)
-		}
-
-		return f, nil
 	case SaltedS2K:
 		f := func(out, in []byte) {
 			Salted(out, hashObj.New(), in, params.salt())
@@ -380,17 +360,19 @@ func (params *Params) Serialize(w io.Writer) (err error) {
 		_, err = w.Write(append([]byte("GNU"), 1))
 		return
 	}
-	if params.mode > 0 {
-		if _, err = w.Write(params.salt()); err != nil {
-			return
-		}
-		if params.mode == IteratedSaltedS2K {
-			_, err = w.Write([]byte{params.countByte})
-		}
-		if params.mode == Argon2S2K {
-			_, err = w.Write([]byte{params.passes, params.parallelism, params.memoryExp})
-		}
+
+	if _, err = w.Write(params.salt()); err != nil {
+		return
 	}
+
+	if params.mode == IteratedSaltedS2K {
+		_, err = w.Write([]byte{params.countByte})
+	}
+
+	if params.mode == Argon2S2K {
+		_, err = w.Write([]byte{params.passes, params.parallelism, params.memoryExp})
+	}
+
 	return
 }
 
