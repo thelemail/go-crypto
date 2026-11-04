@@ -236,7 +236,7 @@ func EncryptTextSplit(keyWriter io.Writer, dataWriter io.Writer, to []*Entity, s
 // that aids the recipients in processing the message. The resulting
 // WriteCloser must be closed after the contents of the file have been
 // written. If config is nil, sensible defaults will be used.
-func writeAndSign(payload io.WriteCloser, candidateHashes []uint8, signed *Entity, hints *FileHints, sigType packet.SignatureType, config *packet.Config) (plaintext io.WriteCloser, err error) {
+func writeAndSign(payload io.WriteCloser, candidateHashes []uint8, signed *Entity, hints *FileHints, sigType packet.SignatureType, intendedRecipients []*packet.Recipient, config *packet.Config) (plaintext io.WriteCloser, err error) {
 	var signer *packet.PrivateKey
 	if signed != nil {
 		signKey, ok := signed.SigningKeyById(config.Now(), config.SigningKey())
@@ -311,7 +311,7 @@ func writeAndSign(payload io.WriteCloser, candidateHashes []uint8, signed *Entit
 			return nil, err
 		}
 
-		return signatureWriter{payload, literalData, hash, wrappedHash, h, salt, signer, sigType, config}, nil
+		return signatureWriter{payload, literalData, hash, wrappedHash, h, salt, signer, sigType, config, intendedRecipients}, nil
 	}
 	return literalData, nil
 }
@@ -452,7 +452,17 @@ func encrypt(keyWriter io.Writer, dataWriter io.Writer, to []*Entity, signed *En
 		return nil, err
 	}
 
-	return writeAndSign(payload, candidateHashes, signed, hints, sigType, config)
+	var intendedRecipients []*packet.Recipient
+	if signed != nil && config.IntendedRecipients() {
+		for _, recipient := range to {
+			intendedRecipients = append(intendedRecipients, &packet.Recipient{
+				KeyVersion:  recipient.PrimaryKey.Version,
+				Fingerprint: recipient.PrimaryKey.Fingerprint,
+			})
+		}
+	}
+
+	return writeAndSign(payload, candidateHashes, signed, hints, sigType, intendedRecipients, config)
 }
 
 // Sign signs a message. The resulting WriteCloser must be closed after the
@@ -486,22 +496,23 @@ func Sign(output io.Writer, signed *Entity, hints *FileHints, config *packet.Con
 		return nil, errors.StructuralError("cannot sign because signing key shares no common algorithms with candidate hashes")
 	}
 
-	return writeAndSign(noOpCloser{output}, candidateHashes, signed, hints, packet.SigTypeBinary, config)
+	return writeAndSign(noOpCloser{output}, candidateHashes, signed, hints, packet.SigTypeBinary, nil, config)
 }
 
 // signatureWriter hashes the contents of a message while passing it along to
 // literalData. When closed, it closes literalData, writes a signature packet
 // to encryptedData and then also closes encryptedData.
 type signatureWriter struct {
-	encryptedData io.WriteCloser
-	literalData   io.WriteCloser
-	hashType      crypto.Hash
-	wrappedHash   hash.Hash
-	h             hash.Hash
-	salt          []byte // v6 only
-	signer        *packet.PrivateKey
-	sigType       packet.SignatureType
-	config        *packet.Config
+	encryptedData      io.WriteCloser
+	literalData        io.WriteCloser
+	hashType           crypto.Hash
+	wrappedHash        hash.Hash
+	h                  hash.Hash
+	salt               []byte // v6 only
+	signer             *packet.PrivateKey
+	sigType            packet.SignatureType
+	config             *packet.Config
+	intendedRecipients []*packet.Recipient
 }
 
 func (s signatureWriter) Write(data []byte) (int, error) {
@@ -519,6 +530,7 @@ func (s signatureWriter) Write(data []byte) (int, error) {
 func (s signatureWriter) Close() error {
 	sig := createSignaturePacket(&s.signer.PublicKey, s.sigType, s.config)
 	sig.Hash = s.hashType
+	sig.IntendedRecipients = s.intendedRecipients
 
 	if err := sig.SetSalt(s.salt); err != nil {
 		return err
