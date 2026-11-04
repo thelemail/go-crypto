@@ -6,6 +6,7 @@
 package openpgp // import "github.com/thelemail/go-crypto/openpgp"
 
 import (
+	"bytes"
 	"crypto"
 	_ "crypto/sha256"
 	_ "crypto/sha3"
@@ -409,6 +410,9 @@ func (scr *signatureCheckReader) Read(buf []byte) (int, error) {
 					if signatureError == nil {
 						signatureError = checkMessageSignatureDetails(key, sig, scr.config)
 					}
+					if signatureError == nil && len(sig.IntendedRecipients) > 0 && scr.config.IntendedRecipients() {
+						signatureError = checkIntendedRecipients(scr.md, sig)
+					}
 					scr.md.Signature = sig
 					scr.md.SignatureError = signatureError
 				} else {
@@ -612,4 +616,20 @@ func checkMessageSignatureDetails(key *Key, signature *packet.Signature, config 
 		}
 	}
 	return nil
+}
+
+func checkIntendedRecipients(md *MessageDetails, sig *packet.Signature) error {
+	if !md.IsEncrypted {
+		return errors.SignatureError("intended recipients in non-encrypted message")
+	}
+	if md.DecryptedWith.Entity == nil {
+		return nil
+	}
+	fingerprint := md.DecryptedWith.Entity.PrimaryKey.Fingerprint
+	for _, recipient := range sig.IntendedRecipients {
+		if bytes.Equal(recipient.Fingerprint, fingerprint) {
+			return nil
+		}
+	}
+	return errors.SignatureError("decryption key is not an intended recipient")
 }

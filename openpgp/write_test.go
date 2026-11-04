@@ -782,3 +782,61 @@ FindKey:
 	}
 	return nil
 }
+
+func TestEncryptNamesIntendedRecipients(t *testing.T) {
+	signer, err := NewEntity("Signer", "", "signer@example.com", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a, err := NewEntity("A", "", "a@example.com", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := NewEntity("B", "", "b@example.com", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	off := false
+	for name, test := range map[string]struct {
+		config *packet.Config
+		want   []*Entity
+	}{
+		"default":  {nil, []*Entity{a, b}},
+		"disabled": {&packet.Config{CheckIntendedRecipients: &off}, nil},
+	} {
+		t.Run(name, func(t *testing.T) {
+			var buf bytes.Buffer
+			w, err := Encrypt(&buf, []*Entity{a, b}, signer, nil, test.config)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := w.Write([]byte("hello")); err != nil {
+				t.Fatal(err)
+			}
+			if err := w.Close(); err != nil {
+				t.Fatal(err)
+			}
+
+			md, err := ReadMessage(&buf, EntityList{a, signer}, nil, test.config)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := io.ReadAll(md.UnverifiedBody); err != nil {
+				t.Fatal(err)
+			}
+			if md.SignatureError != nil {
+				t.Fatal(md.SignatureError)
+			}
+			got := md.Signature.IntendedRecipients
+			if len(got) != len(test.want) {
+				t.Fatalf("got %d intended recipients, want %d", len(got), len(test.want))
+			}
+			for i, entity := range test.want {
+				if got[i].KeyVersion != entity.PrimaryKey.Version || !bytes.Equal(got[i].Fingerprint, entity.PrimaryKey.Fingerprint) {
+					t.Errorf("intended recipient %d: got %x, want %x", i, got[i].Fingerprint, entity.PrimaryKey.Fingerprint)
+				}
+			}
+		})
+	}
+}

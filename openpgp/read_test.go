@@ -6,12 +6,15 @@ package openpgp
 
 import (
 	"bytes"
+	"crypto"
+	"crypto/rand"
 	"encoding/hex"
 	"io"
 	"math/bits"
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/thelemail/go-crypto/openpgp/armor"
 	"github.com/thelemail/go-crypto/openpgp/errors"
@@ -746,5 +749,102 @@ func TestMessageWithoutMdc(t *testing.T) {
 	_, err = ReadMessage(messageWithoutMdc.Body, el, nil, nil)
 	if tag, ok := err.(errors.CriticalUnknownPacketTypeError); !ok || tag != 9 {
 		t.Fatalf("want critical unknown packet type 9, got %v", err)
+	}
+}
+
+func TestCheckIntendedRecipients(t *testing.T) {
+	a, err := NewEntity("A", "", "a@example.com", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := NewEntity("B", "", "b@example.com", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	named := func(entities ...*Entity) *packet.Signature {
+		sig := new(packet.Signature)
+		for _, e := range entities {
+			sig.IntendedRecipients = append(sig.IntendedRecipients, &packet.Recipient{KeyVersion: e.PrimaryKey.Version, Fingerprint: e.PrimaryKey.Fingerprint})
+		}
+		return sig
+	}
+
+	for name, test := range map[string]struct {
+		md      *MessageDetails
+		sig     *packet.Signature
+		wantErr bool
+	}{
+		"not encrypted": {&MessageDetails{}, named(a), true},
+		"passphrase":    {&MessageDetails{IsEncrypted: true}, named(b), false},
+		"match":         {&MessageDetails{IsEncrypted: true, DecryptedWith: Key{Entity: a}}, named(b, a), false},
+		"forwarded":     {&MessageDetails{IsEncrypted: true, DecryptedWith: Key{Entity: a}}, named(b), true},
+	} {
+		t.Run(name, func(t *testing.T) {
+			err := checkIntendedRecipients(test.md, test.sig)
+			if !test.wantErr {
+				if err != nil {
+					t.Fatal(err)
+				}
+				return
+			}
+			if _, ok := err.(errors.SignatureError); !ok {
+				t.Fatalf("got %v, want SignatureError", err)
+			}
+		})
+	}
+}
+
+func TestReadRejectsForwardedSignature(t *testing.T) {
+	signer, err := NewEntity("Signer", "", "signer@example.com", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a, err := NewEntity("A", "", "a@example.com", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := NewEntity("B", "", "b@example.com", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	encryptionKey, ok := a.EncryptionKey(time.Now())
+	if !ok {
+		t.Fatal("no encryption key")
+	}
+
+	var buf bytes.Buffer
+	sessionKey := make([]byte, packet.CipherAES128.KeySize())
+	if _, err := rand.Read(sessionKey); err != nil {
+		t.Fatal(err)
+	}
+	if err := packet.SerializeEncryptedKeyAEAD(&buf, encryptionKey.PublicKey, packet.CipherAES128, true, sessionKey, nil); err != nil {
+		t.Fatal(err)
+	}
+	suite := packet.CipherSuite{Cipher: packet.CipherAES128, Mode: packet.AEADModeOCB}
+	payload, err := packet.SerializeSymmetricallyEncrypted(&buf, packet.CipherAES128, true, suite, sessionKey, &packet.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	recipients := []*packet.Recipient{{KeyVersion: b.PrimaryKey.Version, Fingerprint: b.PrimaryKey.Fingerprint}}
+	w, err := writeAndSign(payload, []uint8{hashToHashId(crypto.SHA256)}, signer, nil, packet.SigTypeBinary, recipients, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := w.Write([]byte("hello")); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	md, err := ReadMessage(&buf, EntityList{a, signer}, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := io.ReadAll(md.UnverifiedBody); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := md.SignatureError.(errors.SignatureError); !ok {
+		t.Fatalf("got %v, want SignatureError", md.SignatureError)
 	}
 }
